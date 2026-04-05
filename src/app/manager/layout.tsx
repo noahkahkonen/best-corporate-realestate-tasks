@@ -1,4 +1,5 @@
 import { logout } from "@/server/logout";
+import { ManagerNav } from "@/components/manager-nav";
 
 export default function ManagerLayout({
   children,
@@ -7,8 +8,8 @@ export default function ManagerLayout({
 }) {
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
-      <header className="mb-8 flex flex-wrap items-start justify-between gap-4 border-b border-zinc-200 pb-6 dark:border-zinc-800">
-        <div>
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="pb-6">
           <p className="text-xs font-semibold tracking-widest text-amber-700 uppercase dark:text-amber-400">
             Manager portal
           </p>
@@ -21,13 +22,7 @@ export default function ManagerLayout({
             help.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <a
-            href="/change-password"
-            className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-          >
-            Password
-          </a>
+        <div className="flex flex-wrap gap-2 pb-6">
           <form action={logout}>
             <button
               type="submit"
@@ -38,7 +33,8 @@ export default function ManagerLayout({
           </form>
         </div>
       </header>
-      {children}
+      <ManagerNav />
+      <div className="pt-8">{children}</div>
     </div>
   );
 }

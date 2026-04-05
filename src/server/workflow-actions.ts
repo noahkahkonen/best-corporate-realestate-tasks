@@ -8,7 +8,7 @@ import { requireRole } from "@/lib/auth-helpers";
 const paths = ["/agent", "/manager", "/admin"];
 
 function revalidateAll() {
-  for (const p of paths) revalidatePath(p);
+  for (const p of paths) revalidatePath(p, "layout");
 }
 
 function parsePriority(v: FormDataEntryValue | null): Priority {

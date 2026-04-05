@@ -50,7 +50,7 @@ export async function managerCreateUser(formData: FormData): Promise<CreateUserR
     return { ok: false, error: "Could not create account. Try again." };
   }
 
-  revalidatePath("/manager");
+  revalidatePath("/manager", "layout");
   return { ok: true, email, password: plain };
 }
 

@@ -23,7 +23,7 @@ export default auth((req) => {
       u.role === "AGENT"
         ? "/agent"
         : u.role === "MANAGER"
-          ? "/manager"
+          ? "/manager/tasks"
           : "/admin";
     return NextResponse.redirect(new URL(dest, req.url));
   }
@@ -34,7 +34,7 @@ export default auth((req) => {
         u.role === "AGENT"
           ? "/agent"
           : u.role === "MANAGER"
-            ? "/manager"
+            ? "/manager/tasks"
             : "/admin";
       return NextResponse.redirect(new URL(dest, req.url));
     }

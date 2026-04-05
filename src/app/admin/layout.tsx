@@ -21,12 +21,6 @@ export default function AdminLayout({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <a
-            href="/change-password"
-            className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-          >
-            Password
-          </a>
           <form action={logout}>
             <button
               type="submit"
