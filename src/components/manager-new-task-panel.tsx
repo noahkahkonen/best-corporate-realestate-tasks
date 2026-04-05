@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { managerCreateApprovedTask } from "@/server/workflow-actions";
 
@@ -8,9 +8,11 @@ type ProjectOption = { id: string; name: string };
 type AdminOption = { id: string; name: string };
 
 export function ManagerNewTaskPanel({
+  children,
   admins,
   projects,
 }: {
+  children: ReactNode;
   admins: AdminOption[];
   projects: ProjectOption[];
 }) {
@@ -18,13 +20,9 @@ export function ManagerNewTaskPanel({
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white/80 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          {open
-            ? "Creates work that is already approved and goes straight to the admin you pick."
-            : "Assign internal work without an agent request review step."}
-        </p>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">{children}</div>
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
@@ -40,7 +38,7 @@ export function ManagerNewTaskPanel({
             setOpen(false);
             router.refresh();
           }}
-          className="grid gap-3 p-5 sm:grid-cols-2"
+          className="grid gap-3 rounded-2xl border border-zinc-200 bg-white/80 p-5 shadow-sm sm:grid-cols-2 dark:border-zinc-800 dark:bg-zinc-950/60"
         >
           <label className="sm:col-span-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
             Title

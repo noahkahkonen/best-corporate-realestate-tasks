@@ -26,7 +26,8 @@ export default async function ManagerTasksPage() {
   const approved = tasks.filter((t) => t.reviewStatus === "APPROVED");
   const denied = tasks.filter((t) => t.reviewStatus === "DENIED");
   const activeApproved = approved.filter(
-    (t) => t.executionStatus !== "NEEDS_HELP",
+    (t) =>
+      t.executionStatus !== "NEEDS_HELP" && t.executionStatus !== "DONE",
   );
 
   const adminOptions = admins.map((a) => ({ id: a.id, name: a.name }));
@@ -34,20 +35,24 @@ export default async function ManagerTasksPage() {
 
   return (
     <div className="space-y-10">
-      <div>
-        <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">
-          Tasks
-        </h2>
-        <p className="mt-1 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">
-          Create internal work, track approved assignments, and use the{" "}
-          <span className="font-medium text-zinc-800 dark:text-zinc-200">
-            Admin support
-          </span>{" "}
-          tab when an admin needs help.
-        </p>
-      </div>
-
-      <ManagerNewTaskPanel admins={adminOptions} projects={projectOptions} />
+      <ManagerNewTaskPanel admins={adminOptions} projects={projectOptions}>
+        <div>
+          <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">
+            Tasks
+          </h2>
+          <p className="mt-1 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">
+            Track active assignments, see finished work on{" "}
+            <span className="font-medium text-zinc-800 dark:text-zinc-200">
+              Completed
+            </span>
+            , and use{" "}
+            <span className="font-medium text-zinc-800 dark:text-zinc-200">
+              Admin support
+            </span>{" "}
+            when an admin needs help.
+          </p>
+        </div>
+      </ManagerNewTaskPanel>
 
       <section>
         <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
@@ -56,9 +61,13 @@ export default async function ManagerTasksPage() {
               Active assignments
             </h3>
             <p className="mt-0.5 text-sm text-zinc-500">
-              Approved work that is not in a help state ({activeApproved.length}
-              ). Click <span className="font-medium text-zinc-600 dark:text-zinc-300">Edit</span>{" "}
-              to change assignment, priority, or due date.
+              Approved work in progress—not in a help state and not yet marked
+              done ({activeApproved.length}). Click{" "}
+              <span className="font-medium text-zinc-600 dark:text-zinc-300">
+                Edit
+              </span>{" "}
+              to change assignment, priority, or due date. Finished work is on
+              the Completed tab.
             </p>
           </div>
         </div>

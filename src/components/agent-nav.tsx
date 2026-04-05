@@ -12,6 +12,7 @@ type Tab = {
 const tabs: Tab[] = [
   { href: "/agent/requests", label: "Your requests", countKey: "pending" },
   { href: "/agent/tasks", label: "Current tasks", countKey: "tasks" },
+  { href: "/agent/completed", label: "Completed", countKey: null },
   { href: "/agent/revisions", label: "Revisions", countKey: "revisions" },
 ];
 

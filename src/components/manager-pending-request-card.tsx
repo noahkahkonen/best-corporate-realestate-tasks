@@ -123,8 +123,8 @@ export function ManagerPendingRequestCard({
             )}
           </div>
 
-          <div className="flex flex-wrap gap-1.5 border-t border-zinc-100 px-3 py-2 pl-10 dark:border-zinc-800">
-            <span className="mr-1 self-center text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+          <div className="flex flex-wrap gap-1.5 border-t border-zinc-100 bg-zinc-50/80 px-3 py-2.5 pl-10 dark:border-zinc-800 dark:bg-zinc-900/40">
+            <span className="mr-1 self-center text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
               Decision
             </span>
             <button
@@ -132,8 +132,8 @@ export function ManagerPendingRequestCard({
               onClick={() => pickAction("approve")}
               className={
                 action === "approve"
-                  ? "rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white"
-                  : "rounded-md border border-zinc-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  ? "rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white shadow-sm"
+                  : "rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-900 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-100 dark:hover:bg-emerald-900/80"
               }
             >
               Approve
@@ -143,8 +143,8 @@ export function ManagerPendingRequestCard({
               onClick={() => pickAction("changes")}
               className={
                 action === "changes"
-                  ? "rounded-md bg-amber-600 px-2.5 py-1 text-xs font-medium text-white"
-                  : "rounded-md border border-zinc-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  ? "rounded-md bg-amber-600 px-2.5 py-1 text-xs font-medium text-white shadow-sm"
+                  : "rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-950 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-100 dark:hover:bg-amber-900/70"
               }
             >
               Request changes
@@ -154,8 +154,8 @@ export function ManagerPendingRequestCard({
               onClick={() => pickAction("reject")}
               className={
                 action === "reject"
-                  ? "rounded-md bg-rose-600 px-2.5 py-1 text-xs font-medium text-white"
-                  : "rounded-md border border-zinc-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  ? "rounded-md bg-rose-600 px-2.5 py-1 text-xs font-medium text-white shadow-sm"
+                  : "rounded-md border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-900 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-100 dark:hover:bg-rose-900/70"
               }
             >
               Reject
