@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 import { formatDue } from "@/lib/format-due";
 import { AgentNewRequestPanel } from "@/components/agent-new-request-panel";
-import { createProject, deleteMyTaskRequest } from "@/server/workflow-actions";
+import { deleteMyTaskRequest } from "@/server/workflow-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -153,35 +153,6 @@ export default async function AgentRequestsPage() {
             ))
           )}
         </ul>
-      </section>
-
-      <section className="rounded-2xl border border-zinc-200 bg-white/80 p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
-        <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
-          Projects
-        </h3>
-        <p className="mt-1 text-sm text-zinc-500">
-          Group requests under a project for easier filtering.
-        </p>
-        <form action={createProject} className="mt-3 flex flex-wrap gap-2">
-          <input
-            name="name"
-            placeholder="New project name"
-            className="min-w-[200px] flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-          />
-          <input
-            name="color"
-            type="color"
-            defaultValue="#4f46e5"
-            className="h-10 w-14 cursor-pointer rounded-lg border border-zinc-200 bg-white p-1 dark:border-zinc-700"
-            title="Color"
-          />
-          <button
-            type="submit"
-            className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium dark:border-zinc-700"
-          >
-            Add project
-          </button>
-        </form>
       </section>
     </div>
   );
