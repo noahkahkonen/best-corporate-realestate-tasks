@@ -11,7 +11,7 @@ type Tab = {
 
 const tabs: Tab[] = [
   { href: "/agent/requests", label: "Your requests", countKey: "pending" },
-  { href: "/agent/tasks", label: "Your tasks", countKey: "tasks" },
+  { href: "/agent/tasks", label: "Current tasks", countKey: "tasks" },
   { href: "/agent/revisions", label: "Revisions", countKey: "revisions" },
 ];
 
@@ -49,7 +49,7 @@ export function AgentNav({
           countKey === "pending"
             ? `${count} pending request${count === 1 ? "" : "s"}`
             : countKey === "tasks"
-              ? `${count} active task${count === 1 ? "" : "s"}`
+              ? `${count} current task${count === 1 ? "" : "s"}`
               : `${count} revision${count === 1 ? "" : "s"}`;
 
         return (

@@ -19,7 +19,7 @@ export default async function AgentTasksPage() {
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">
-          Approved work
+          Current tasks
         </h2>
         <p className="mt-1 text-sm text-zinc-500">
           Requests a manager approved and assigned to an admin. Status updates
@@ -30,7 +30,7 @@ export default async function AgentTasksPage() {
       <ul className="space-y-4">
         {approved.length === 0 ? (
           <li className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/80 px-5 py-10 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900/40">
-            No active tasks yet. When a manager approves a request, it will show
+            No current tasks yet. When a manager approves a request, it will show
             up here.
           </li>
         ) : (
