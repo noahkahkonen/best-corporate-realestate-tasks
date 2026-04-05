@@ -21,7 +21,7 @@ export default auth((req) => {
     }
     const dest =
       u.role === "AGENT"
-        ? "/agent"
+        ? "/agent/requests"
         : u.role === "MANAGER"
           ? "/manager/tasks"
           : "/admin";
@@ -32,7 +32,7 @@ export default auth((req) => {
     if (u) {
       const dest =
         u.role === "AGENT"
-          ? "/agent"
+          ? "/agent/requests"
           : u.role === "MANAGER"
             ? "/manager/tasks"
             : "/admin";

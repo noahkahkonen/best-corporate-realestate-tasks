@@ -1,27 +1,48 @@
+import { auth } from "@/auth";
 import { logout } from "@/server/logout";
+import { AgentNav } from "@/components/agent-nav";
+import { prisma } from "@/lib/prisma";
 
-export default function AgentLayout({
+export const dynamic = "force-dynamic";
+
+export default async function AgentLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  const [pendingCount, tasksCount, revisionsCount] = userId
+    ? await Promise.all([
+        prisma.task.count({
+          where: { creatorId: userId, reviewStatus: "PENDING_REVIEW" },
+        }),
+        prisma.task.count({
+          where: { creatorId: userId, reviewStatus: "APPROVED" },
+        }),
+        prisma.task.count({
+          where: { creatorId: userId, reviewStatus: "CHANGES_REQUESTED" },
+        }),
+      ])
+    : [0, 0, 0];
+
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
-      <header className="mb-8 flex flex-wrap items-start justify-between gap-4 border-b border-zinc-200 pb-6 dark:border-zinc-800">
-        <div>
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="pb-6">
           <p className="text-xs font-semibold tracking-widest text-indigo-600 uppercase dark:text-indigo-400">
             Agent portal
           </p>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-white">
-            Task requests
+            Requests &amp; tasks
           </h1>
           <p className="mt-1 max-w-xl text-sm text-zinc-600 dark:text-zinc-400">
-            Create requests for work you need from the admin team. A manager
-            will review, approve, or send back changes before an admin is
-            assigned.
+            Submit new work, track what is in progress, and handle revisions
+            when your manager sends something back.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 pb-6">
           <form action={logout}>
             <button
               type="submit"
@@ -32,7 +53,12 @@ export default function AgentLayout({
           </form>
         </div>
       </header>
-      {children}
+      <AgentNav
+        pendingCount={pendingCount}
+        tasksCount={tasksCount}
+        revisionsCount={revisionsCount}
+      />
+      <div className="pt-8">{children}</div>
     </div>
   );
 }
