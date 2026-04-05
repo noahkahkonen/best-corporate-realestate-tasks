@@ -34,6 +34,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.email,
           name: user.name,
           role: user.role as Role,
+          mustChangePassword: user.mustChangePassword,
         };
       },
     }),
@@ -41,9 +42,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     jwt({ token, user }) {
       if (user) {
-        const u = user as { id: string; role: Role };
+        const u = user as {
+          id: string;
+          role: Role;
+          mustChangePassword?: boolean;
+        };
         token.sub = u.id;
         token.role = u.role;
+        token.mustChangePassword = !!u.mustChangePassword;
       }
       return token;
     },
@@ -51,6 +57,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (session.user) {
         session.user.id = (token.sub as string) ?? "";
         if (token.role) session.user.role = token.role as Role;
+        session.user.mustChangePassword = !!token.mustChangePassword;
       }
       return session;
     },

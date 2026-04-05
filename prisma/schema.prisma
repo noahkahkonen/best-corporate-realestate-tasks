@@ -8,14 +8,15 @@ datasource db {
 }
 
 model User {
-  id             String   @id @default(cuid())
-  email          String   @unique
-  passwordHash   String
-  name           String
-  role           Role
-  createdAt      DateTime @default(now())
-  tasksCreated   Task[]   @relation("TaskCreator")
-  tasksAssigned  Task[]   @relation("TaskAssignee")
+  id                   String   @id @default(cuid())
+  email                String   @unique
+  passwordHash         String
+  name                 String
+  role                 Role
+  mustChangePassword   Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  tasksCreated         Task[]   @relation("TaskCreator")
+  tasksAssigned        Task[]   @relation("TaskAssignee")
 }
 
 enum Role {

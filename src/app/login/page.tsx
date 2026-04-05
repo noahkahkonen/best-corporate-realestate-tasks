@@ -8,7 +8,12 @@ export const metadata: Metadata = {
   title: "Sign in — BCR Tasks",
 };
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ updated?: string }>;
+}) {
+  const { updated } = await searchParams;
   let userCount: number | null = null;
   let dbError = false;
   try {
@@ -20,6 +25,14 @@ export default async function LoginPage() {
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-4 py-16">
+      {updated === "1" ? (
+        <div
+          className="mb-6 w-full max-w-sm rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100"
+          role="status"
+        >
+          Password updated. Sign in with your new password.
+        </div>
+      ) : null}
       {dbError ? (
         <div
           className="mb-6 w-full max-w-sm rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-100"

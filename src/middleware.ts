@@ -5,6 +5,16 @@ export default auth((req) => {
   const { pathname } = req.nextUrl;
   const u = req.auth?.user;
 
+  if (u?.mustChangePassword) {
+    if (pathname.startsWith("/api/auth")) {
+      return NextResponse.next();
+    }
+    if (pathname === "/change-password") {
+      return NextResponse.next();
+    }
+    return NextResponse.redirect(new URL("/change-password", req.url));
+  }
+
   if (pathname === "/") {
     if (!u) {
       return NextResponse.redirect(new URL("/login", req.url));
@@ -49,5 +59,12 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/", "/login", "/agent/:path*", "/manager/:path*", "/admin/:path*"],
+  matcher: [
+    "/",
+    "/login",
+    "/change-password",
+    "/agent/:path*",
+    "/manager/:path*",
+    "/admin/:path*",
+  ],
 };

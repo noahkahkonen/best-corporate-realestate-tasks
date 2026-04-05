@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
+import { ManagerCreateUser } from "@/components/manager-create-user";
 import {
   managerApprove,
   managerDeny,
@@ -45,6 +46,7 @@ export default async function ManagerPage() {
 
   return (
     <div className="space-y-10">
+      <ManagerCreateUser />
       {needsHelp.length > 0 && (
         <section className="rounded-2xl border-2 border-rose-300 bg-rose-500/5 p-6 dark:border-rose-700">
           <h2 className="text-lg font-semibold text-rose-900 dark:text-rose-100">
