@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { LoginForm } from "@/components/login-form";
 import { prisma } from "@/lib/prisma";
+import {
+  SEED_MANAGER_EMAIL,
+  SEED_MANAGER_PASSWORD,
+} from "@/lib/seed-credentials";
 
 export const dynamic = "force-dynamic";
 
@@ -69,10 +73,17 @@ export default async function LoginPage({
       userCount !== null &&
       userCount > 0 ? (
         <p className="mt-6 max-w-sm text-center text-xs text-zinc-500">
-          Dev seed logins: agent@bcr.example.com / manager@bcr.example.com /
-          admin@bcr.example.com — password{" "}
+          Dev seed: agent &amp; admin —{" "}
           <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">
             password
+          </code>
+          . Manager —{" "}
+          <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">
+            {SEED_MANAGER_EMAIL}
+          </code>{" "}
+          /{" "}
+          <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">
+            {SEED_MANAGER_PASSWORD}
           </code>
         </p>
       ) : null}

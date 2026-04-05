@@ -1,5 +1,9 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import {
+  SEED_MANAGER_EMAIL,
+  SEED_MANAGER_PASSWORD,
+} from "../src/lib/seed-credentials";
 
 const prisma = new PrismaClient();
 
@@ -19,14 +23,24 @@ async function main() {
     },
   });
 
-  await prisma.user.upsert({
+  await prisma.user.deleteMany({
     where: { email: "manager@bcr.example.com" },
-    update: {},
-    create: {
-      email: "manager@bcr.example.com",
-      name: "Morgan Manager",
-      passwordHash: hash("password"),
+  });
+
+  await prisma.user.upsert({
+    where: { email: SEED_MANAGER_EMAIL },
+    update: {
+      name: "Noah Kahkonen",
+      passwordHash: hash(SEED_MANAGER_PASSWORD),
       role: "MANAGER",
+      mustChangePassword: false,
+    },
+    create: {
+      email: SEED_MANAGER_EMAIL,
+      name: "Noah Kahkonen",
+      passwordHash: hash(SEED_MANAGER_PASSWORD),
+      role: "MANAGER",
+      mustChangePassword: false,
     },
   });
 
@@ -69,7 +83,7 @@ async function main() {
 
   console.log("Seed OK. Demo logins (change passwords in production):");
   console.log("  Agent:   agent@bcr.example.com / password");
-  console.log("  Manager: manager@bcr.example.com / password");
+  console.log(`  Manager: ${SEED_MANAGER_EMAIL} / (see src/lib/seed-credentials.ts)`);
   console.log("  Admin:   admin@bcr.example.com / password");
 }
 
