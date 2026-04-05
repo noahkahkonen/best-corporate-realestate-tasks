@@ -6,3 +6,10 @@ export function formatDue(d: Date | null) {
     year: "numeric",
   }).format(d);
 }
+
+export function formatDateTime(d: Date) {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(d);
+}

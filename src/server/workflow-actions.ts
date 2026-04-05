@@ -105,6 +105,17 @@ export async function createProject(formData: FormData) {
   revalidateAll();
 }
 
+/** Pending review queue is only for tasks submitted by agents */
+async function pendingAgentTask(id: string) {
+  const task = await prisma.task.findUnique({
+    where: { id },
+    include: { creator: true },
+  });
+  if (!task || task.reviewStatus !== "PENDING_REVIEW") return null;
+  if (!task.creatorId || task.creator?.role !== "AGENT") return null;
+  return task;
+}
+
 /** Manager: approve and assign to an admin */
 export async function managerApprove(formData: FormData) {
   await requireRole(["MANAGER"]);
@@ -112,8 +123,8 @@ export async function managerApprove(formData: FormData) {
   const assignedToId = String(formData.get("assignedToId") ?? "").trim();
   if (!id || !assignedToId) return;
 
-  const existing = await prisma.task.findUnique({ where: { id } });
-  if (!existing || existing.reviewStatus !== "PENDING_REVIEW") return;
+  const existing = await pendingAgentTask(id);
+  if (!existing) return;
 
   const adminUser = await prisma.user.findFirst({
     where: { id: assignedToId, role: "ADMIN" },
@@ -141,8 +152,8 @@ export async function managerRequestChanges(formData: FormData) {
   const managerNote = String(formData.get("managerNote") ?? "").trim();
   if (!id || !managerNote) return;
 
-  const existing = await prisma.task.findUnique({ where: { id } });
-  if (!existing || existing.reviewStatus !== "PENDING_REVIEW") return;
+  const existing = await pendingAgentTask(id);
+  if (!existing) return;
 
   await prisma.task.update({
     where: { id },
@@ -162,8 +173,8 @@ export async function managerDeny(formData: FormData) {
   const managerNote = String(formData.get("managerNote") ?? "").trim();
   if (!id || !managerNote) return;
 
-  const existing = await prisma.task.findUnique({ where: { id } });
-  if (!existing || existing.reviewStatus !== "PENDING_REVIEW") return;
+  const existing = await pendingAgentTask(id);
+  if (!existing) return;
 
   await prisma.task.update({
     where: { id },
