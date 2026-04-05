@@ -5,6 +5,10 @@ import type { Role } from "@prisma/client";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60,
+  },
   providers: [
     Credentials({
       name: "credentials",
@@ -36,14 +40,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     jwt({ token, user }) {
-      if (user && "role" in user) {
-        token.role = (user as { role: Role }).role;
+      if (user) {
+        const u = user as { id: string; role: Role };
+        token.sub = u.id;
+        token.role = u.role;
       }
       return token;
     },
     session({ session, token }) {
-      if (session.user && token.sub) {
-        session.user.id = token.sub;
+      if (session.user) {
+        session.user.id = (token.sub as string) ?? "";
         if (token.role) session.user.role = token.role as Role;
       }
       return session;

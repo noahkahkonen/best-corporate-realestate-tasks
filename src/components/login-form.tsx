@@ -23,8 +23,16 @@ export function LoginForm() {
       redirect: false,
     });
     setPending(false);
-    if (res?.error) {
-      setError("Invalid email or password.");
+    if (!res || res.error) {
+      setError(
+        res?.error === "CredentialsSignin"
+          ? "Invalid email or password."
+          : "Sign-in failed. Check AUTH_SECRET and DATABASE_URL on the server.",
+      );
+      return;
+    }
+    if (!res.ok) {
+      setError("Sign-in failed. Please try again.");
       return;
     }
     router.push("/");
