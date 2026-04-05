@@ -215,6 +215,26 @@ export async function managerUpdateAssignment(formData: FormData) {
   revalidateAll();
 }
 
+/** Manager: clear NEEDS_HELP and return work to in progress for the assigned admin */
+export async function managerResolveHelpRequest(formData: FormData) {
+  await requireRole(["MANAGER"]);
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) return;
+
+  const task = await prisma.task.findUnique({ where: { id } });
+  if (!task || task.reviewStatus !== "APPROVED") return;
+  if (task.executionStatus !== "NEEDS_HELP") return;
+
+  await prisma.task.update({
+    where: { id },
+    data: {
+      executionStatus: "IN_PROGRESS",
+      helpNote: null,
+    },
+  });
+  revalidateAll();
+}
+
 /** Admin: report execution status */
 export async function adminUpdateExecution(formData: FormData) {
   const session = await requireRole(["ADMIN"]);

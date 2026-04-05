@@ -1,41 +1,9 @@
-import type { ExecutionStatus, Priority } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
-import { formatDue } from "@/lib/format-due";
-import { managerUpdateAssignment } from "@/server/workflow-actions";
+import { ManagerActiveAssignmentCard } from "@/components/manager-active-assignment-card";
+import { managerResolveHelpRequest } from "@/server/workflow-actions";
 
 export const dynamic = "force-dynamic";
-
-function executionLabel(s: ExecutionStatus): string {
-  return s.replace(/_/g, " ");
-}
-
-function priorityStyles(p: Priority): string {
-  switch (p) {
-    case "HIGH":
-      return "bg-rose-100 text-rose-900 dark:bg-rose-950/80 dark:text-rose-100";
-    case "MEDIUM":
-      return "bg-amber-100 text-amber-950 dark:bg-amber-950/60 dark:text-amber-100";
-    case "LOW":
-      return "bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-100";
-    default:
-      return "bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-100";
-  }
-}
-
-function executionBadgeStyles(s: ExecutionStatus): string {
-  switch (s) {
-    case "DONE":
-      return "bg-emerald-100 text-emerald-900 dark:bg-emerald-950/80 dark:text-emerald-100";
-    case "IN_PROGRESS":
-      return "bg-sky-100 text-sky-900 dark:bg-sky-950/80 dark:text-sky-100";
-    case "NEEDS_HELP":
-      return "bg-rose-100 text-rose-900 dark:bg-rose-950/80 dark:text-rose-100";
-    case "NOT_STARTED":
-    default:
-      return "bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200";
-  }
-}
 
 export default async function ManagerTasksPage() {
   await requireRole(["MANAGER"]);
@@ -63,6 +31,8 @@ export default async function ManagerTasksPage() {
     (t) => t.executionStatus !== "NEEDS_HELP",
   );
 
+  const adminOptions = admins.map((a) => ({ id: a.id, name: a.name }));
+
   return (
     <div className="space-y-10">
       <div>
@@ -87,8 +57,9 @@ export default async function ManagerTasksPage() {
               </span>
             </div>
             <p className="mt-1 text-sm text-rose-900/80 dark:text-rose-200/90">
-              These assignments are flagged—review the note and unblock or
-              reassign.
+              Review the note, then return the task to{" "}
+              <span className="font-medium">In progress</span> when the admin
+              can continue, or use Edit on the card below to reassign.
             </p>
           </div>
           <ul className="divide-y divide-rose-100 dark:divide-rose-900/40">
@@ -116,6 +87,21 @@ export default async function ManagerTasksPage() {
                     No help note provided.
                   </p>
                 )}
+                <form
+                  action={managerResolveHelpRequest}
+                  className="mt-4 flex flex-wrap items-center gap-3"
+                >
+                  <input type="hidden" name="id" value={t.id} />
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+                  >
+                    Resolve &amp; return to in progress
+                  </button>
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                    Clears the help flag so the admin can keep working.
+                  </span>
+                </form>
               </li>
             ))}
           </ul>
@@ -130,7 +116,8 @@ export default async function ManagerTasksPage() {
             </h3>
             <p className="mt-0.5 text-sm text-zinc-500">
               Approved work that is not in a help state ({activeApproved.length}
-              ).
+              ). Click <span className="font-medium text-zinc-600 dark:text-zinc-300">Edit</span>{" "}
+              to change assignment, priority, or due date.
             </p>
           </div>
         </div>
@@ -148,117 +135,20 @@ export default async function ManagerTasksPage() {
         ) : (
           <ul className="space-y-6">
             {activeApproved.map((t) => (
-              <li
-                key={t.id}
-                className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900/80 dark:shadow-none"
-              >
-                <div className="border-b border-zinc-100 bg-zinc-50/90 px-5 py-3.5 dark:border-zinc-800 dark:bg-zinc-950/60">
-                  <p className="text-xs font-medium tracking-wide text-zinc-500 uppercase">
-                    Request &amp; assignee
-                  </p>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-zinc-700 dark:text-zinc-300">
-                    <span className="font-medium text-zinc-900 dark:text-white">
-                      {t.creator?.name ?? "Unknown agent"}
-                    </span>
-                    <span className="text-zinc-400">→</span>
-                    <span>{t.assignee?.name ?? "Unassigned"}</span>
-                    {t.project ? (
-                      <>
-                        <span className="hidden text-zinc-300 sm:inline dark:text-zinc-600">
-                          ·
-                        </span>
-                        <span className="text-zinc-600 dark:text-zinc-400">
-                          {t.project.name}
-                        </span>
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="px-5 py-5">
-                  <h4 className="text-base font-semibold text-zinc-900 dark:text-white">
-                    {t.title}
-                  </h4>
-                  {t.notes ? (
-                    <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
-                      {t.notes}
-                    </p>
-                  ) : null}
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${executionBadgeStyles(t.executionStatus)}`}
-                    >
-                      {executionLabel(t.executionStatus)}
-                    </span>
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${priorityStyles(t.priority)}`}
-                    >
-                      {t.priority} priority
-                    </span>
-                    <span className="inline-flex rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
-                      Due {formatDue(t.dueAt)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="border-t border-zinc-100 bg-zinc-50/50 px-5 py-4 dark:border-zinc-800 dark:bg-zinc-950/40">
-                  <p className="mb-3 text-xs font-medium tracking-wide text-zinc-500 uppercase">
-                    Update assignment
-                  </p>
-                  <form
-                    action={managerUpdateAssignment}
-                    className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end"
-                  >
-                    <input type="hidden" name="id" value={t.id} />
-                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                      Assign to
-                      <select
-                        name="assignedToId"
-                        defaultValue={t.assignedToId ?? ""}
-                        className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
-                      >
-                        <option value="">Keep current</option>
-                        {admins.map((a) => (
-                          <option key={a.id} value={a.id}>
-                            {a.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                      Priority
-                      <select
-                        name="priority"
-                        defaultValue={t.priority}
-                        className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
-                      >
-                        <option value="LOW">Low</option>
-                        <option value="MEDIUM">Medium</option>
-                        <option value="HIGH">High</option>
-                      </select>
-                    </label>
-                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                      Due date
-                      <input
-                        type="date"
-                        name="dueAt"
-                        defaultValue={
-                          t.dueAt ? t.dueAt.toISOString().slice(0, 10) : ""
-                        }
-                        className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
-                      />
-                    </label>
-                    <div className="flex items-end sm:col-span-2 lg:col-span-1">
-                      <button
-                        type="submit"
-                        className="w-full rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-amber-500 dark:bg-amber-600 dark:hover:bg-amber-500"
-                      >
-                        Save changes
-                      </button>
-                    </div>
-                  </form>
-                </div>
+              <li key={`${t.id}-${t.updatedAt.toISOString()}`}>
+                <ManagerActiveAssignmentCard
+                  taskId={t.id}
+                  creatorName={t.creator?.name ?? null}
+                  assigneeName={t.assignee?.name ?? null}
+                  projectName={t.project?.name ?? null}
+                  title={t.title}
+                  notes={t.notes}
+                  executionStatus={t.executionStatus}
+                  priority={t.priority}
+                  dueAt={t.dueAt}
+                  assignedToId={t.assignedToId}
+                  admins={adminOptions}
+                />
               </li>
             ))}
           </ul>
