@@ -57,6 +57,7 @@ export default async function AdminPage() {
                 </p>
 
                 <form
+                  key={`${t.id}-${t.updatedAt.toISOString()}`}
                   action={adminUpdateExecution}
                   className="mt-4 space-y-3 border-t border-zinc-100 pt-4 dark:border-zinc-800"
                 >
