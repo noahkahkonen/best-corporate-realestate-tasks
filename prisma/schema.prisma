@@ -7,6 +7,23 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  passwordHash   String
+  name           String
+  role           Role
+  createdAt      DateTime @default(now())
+  tasksCreated   Task[]   @relation("TaskCreator")
+  tasksAssigned  Task[]   @relation("TaskAssignee")
+}
+
+enum Role {
+  AGENT
+  MANAGER
+  ADMIN
+}
+
 model Project {
   id        String   @id @default(cuid())
   name      String
@@ -16,23 +33,41 @@ model Project {
 }
 
 model Task {
-  id        String     @id @default(cuid())
+  id        String   @id @default(cuid())
   title     String
   notes     String?
-  status    TaskStatus @default(TODO)
-  priority  Priority   @default(MEDIUM)
+  priority  Priority @default(MEDIUM)
   dueAt     DateTime?
-  sortOrder Int        @default(0)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   projectId String?
-  project   Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  creatorId String?
+  creator   User?    @relation("TaskCreator", fields: [creatorId], references: [id], onDelete: SetNull)
+
+  assignedToId String?
+  assignee     User?   @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  reviewStatus    ReviewStatus    @default(PENDING_REVIEW)
+  executionStatus ExecutionStatus @default(NOT_STARTED)
+  managerNote     String?
+  helpNote        String?
 }
 
-enum TaskStatus {
-  TODO
+enum ReviewStatus {
+  PENDING_REVIEW
+  APPROVED
+  CHANGES_REQUESTED
+  DENIED
+}
+
+enum ExecutionStatus {
+  NOT_STARTED
   IN_PROGRESS
   DONE
+  NEEDS_HELP
 }
 
 enum Priority {

@@ -1,0 +1,36 @@
+import { logout } from "@/server/logout";
+
+export default function AgentLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
+      <header className="mb-8 flex flex-wrap items-start justify-between gap-4 border-b border-zinc-200 pb-6 dark:border-zinc-800">
+        <div>
+          <p className="text-xs font-semibold tracking-widest text-indigo-600 uppercase dark:text-indigo-400">
+            Agent portal
+          </p>
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-white">
+            Task requests
+          </h1>
+          <p className="mt-1 max-w-xl text-sm text-zinc-600 dark:text-zinc-400">
+            Create requests for work you need from the admin team. A manager
+            will review, approve, or send back changes before an admin is
+            assigned.
+          </p>
+        </div>
+        <form action={logout}>
+          <button
+            type="submit"
+            className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            Sign out
+          </button>
+        </form>
+      </header>
+      {children}
+    </div>
+  );
+}

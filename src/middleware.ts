@@ -1,0 +1,53 @@
+import { auth } from "@/auth";
+import { NextResponse } from "next/server";
+
+export default auth((req) => {
+  const { pathname } = req.nextUrl;
+  const u = req.auth?.user;
+
+  if (pathname === "/") {
+    if (!u) {
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
+    const dest =
+      u.role === "AGENT"
+        ? "/agent"
+        : u.role === "MANAGER"
+          ? "/manager"
+          : "/admin";
+    return NextResponse.redirect(new URL(dest, req.url));
+  }
+
+  if (pathname === "/login") {
+    if (u) {
+      const dest =
+        u.role === "AGENT"
+          ? "/agent"
+          : u.role === "MANAGER"
+            ? "/manager"
+            : "/admin";
+      return NextResponse.redirect(new URL(dest, req.url));
+    }
+    return NextResponse.next();
+  }
+
+  if (!u) {
+    return NextResponse.redirect(new URL("/login", req.url));
+  }
+
+  if (pathname.startsWith("/agent") && u.role !== "AGENT") {
+    return NextResponse.redirect(new URL("/", req.url));
+  }
+  if (pathname.startsWith("/manager") && u.role !== "MANAGER") {
+    return NextResponse.redirect(new URL("/", req.url));
+  }
+  if (pathname.startsWith("/admin") && u.role !== "ADMIN") {
+    return NextResponse.redirect(new URL("/", req.url));
+  }
+
+  return NextResponse.next();
+});
+
+export const config = {
+  matcher: ["/", "/login", "/agent/:path*", "/manager/:path*", "/admin/:path*"],
+};
