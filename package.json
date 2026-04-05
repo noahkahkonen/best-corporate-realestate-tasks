@@ -10,7 +10,8 @@
     "start": "next start",
     "lint": "eslint",
     "db:seed": "dotenv -e .env.local -e .env -- prisma db seed",
-    "db:migrate": "dotenv -e .env.local -e .env -- prisma migrate deploy"
+    "db:migrate": "dotenv -e .env.local -e .env -- prisma migrate deploy",
+    "github:publish": "gh repo create best-corporate-realestate-tasks --public --source=. --remote=origin --push"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
