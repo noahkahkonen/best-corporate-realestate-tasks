@@ -9,12 +9,20 @@ export default async function ManagerLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const taskRequestCount = await prisma.task.count({
-    where: {
-      reviewStatus: "PENDING_REVIEW",
-      creator: { role: "AGENT" },
-    },
-  });
+  const [taskRequestCount, supportCount] = await Promise.all([
+    prisma.task.count({
+      where: {
+        reviewStatus: "PENDING_REVIEW",
+        creator: { role: "AGENT" },
+      },
+    }),
+    prisma.task.count({
+      where: {
+        reviewStatus: "APPROVED",
+        executionStatus: "NEEDS_HELP",
+      },
+    }),
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
@@ -27,9 +35,8 @@ export default async function ManagerLayout({
             Review &amp; assign
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">
-            Approve agent requests, request revisions, deny when needed, assign
-            and prioritize work for admins, and watch for tasks where admins need
-            help.
+            Approve agent requests, create tasks, assign work to admins, and use
+            Admin support when someone flags a blocker.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 pb-6">
@@ -43,7 +50,7 @@ export default async function ManagerLayout({
           </form>
         </div>
       </header>
-      <ManagerNav taskRequestCount={taskRequestCount} />
+      <ManagerNav taskRequestCount={taskRequestCount} supportCount={supportCount} />
       <div className="pt-8">{children}</div>
     </div>
   );

@@ -10,6 +10,7 @@ export default async function AgentTasksPage() {
     where: {
       creatorId: session.user.id,
       reviewStatus: "APPROVED",
+      executionStatus: { not: "NEEDS_HELP" },
     },
     include: { project: true, assignee: true },
     orderBy: { updatedAt: "desc" },
@@ -78,12 +79,6 @@ export default async function AgentTasksPage() {
                       Project:{" "}
                     </dt>
                     <dd className="inline">{t.project.name}</dd>
-                  </div>
-                ) : null}
-                {t.helpNote ? (
-                  <div className="rounded-lg bg-rose-500/10 px-3 py-2 text-rose-900 dark:text-rose-100">
-                    <span className="font-medium">Help requested:</span>{" "}
-                    {t.helpNote}
                   </div>
                 ) : null}
               </dl>

@@ -105,6 +105,42 @@ export async function createProject(formData: FormData) {
   revalidateAll();
 }
 
+/** Manager: create an approved task assigned directly to an admin (no agent review step) */
+export async function managerCreateApprovedTask(formData: FormData) {
+  const session = await requireRole(["MANAGER"]);
+  const title = String(formData.get("title") ?? "").trim();
+  const assignedToId = String(formData.get("assignedToId") ?? "").trim();
+  if (!title || !assignedToId) return;
+
+  const adminUser = await prisma.user.findFirst({
+    where: { id: assignedToId, role: "ADMIN" },
+  });
+  if (!adminUser) return;
+
+  const projectIdRaw = formData.get("projectId");
+  const projectId =
+    projectIdRaw && String(projectIdRaw) !== "" ? String(projectIdRaw) : null;
+  if (projectId) {
+    const p = await prisma.project.findUnique({ where: { id: projectId } });
+    if (!p) return;
+  }
+
+  await prisma.task.create({
+    data: {
+      title,
+      notes: String(formData.get("notes") ?? "").trim() || null,
+      priority: parsePriority(formData.get("priority")),
+      dueAt: parseOptionalDate(formData.get("dueAt")),
+      creatorId: session.user.id,
+      assignedToId,
+      projectId,
+      reviewStatus: "APPROVED",
+      executionStatus: "NOT_STARTED",
+    },
+  });
+  revalidateAll();
+}
+
 /** Pending review queue is only for tasks submitted by agents */
 async function pendingAgentTask(id: string) {
   const task = await prisma.task.findUnique({

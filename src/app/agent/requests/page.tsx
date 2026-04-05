@@ -79,7 +79,7 @@ export default async function AgentRequestsPage() {
           <span className="font-medium text-zinc-800 dark:text-zinc-200">
             Revisions
           </span>{" "}
-          when your manager sends something back.
+          for manager change requests or when an admin needs help.
         </p>
       </div>
 

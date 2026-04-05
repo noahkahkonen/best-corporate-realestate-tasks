@@ -19,10 +19,23 @@ export default async function AgentLayout({
           where: { creatorId: userId, reviewStatus: "PENDING_REVIEW" },
         }),
         prisma.task.count({
-          where: { creatorId: userId, reviewStatus: "APPROVED" },
+          where: {
+            creatorId: userId,
+            reviewStatus: "APPROVED",
+            executionStatus: { not: "NEEDS_HELP" },
+          },
         }),
         prisma.task.count({
-          where: { creatorId: userId, reviewStatus: "CHANGES_REQUESTED" },
+          where: {
+            creatorId: userId,
+            OR: [
+              { reviewStatus: "CHANGES_REQUESTED" },
+              {
+                reviewStatus: "APPROVED",
+                executionStatus: "NEEDS_HELP",
+              },
+            ],
+          },
         }),
       ])
     : [0, 0, 0];
@@ -38,8 +51,8 @@ export default async function AgentLayout({
             Requests &amp; tasks
           </h1>
           <p className="mt-1 max-w-xl text-sm text-zinc-600 dark:text-zinc-400">
-            Submit new work, track what is in progress, and handle revisions
-            when your manager sends something back.
+            Submit new work, track approved tasks, and open Revisions when your
+            manager or an admin needs something from you.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 pb-6">

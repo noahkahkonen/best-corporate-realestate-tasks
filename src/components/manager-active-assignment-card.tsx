@@ -1,0 +1,183 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import type { ExecutionStatus, Priority } from "@prisma/client";
+import { formatDue } from "@/lib/format-due";
+import {
+  executionBadgeStyles,
+  executionLabel,
+  priorityStyles,
+} from "@/lib/manager-task-display";
+import { managerUpdateAssignment } from "@/server/workflow-actions";
+
+export type AdminOption = { id: string; name: string };
+
+type Props = {
+  taskId: string;
+  creatorName: string | null;
+  assigneeName: string | null;
+  projectName: string | null;
+  title: string;
+  notes: string | null;
+  executionStatus: ExecutionStatus;
+  priority: Priority;
+  /** Serialized across the server/client boundary as ISO string when needed */
+  dueAt: Date | string | null;
+  assignedToId: string | null;
+  admins: AdminOption[];
+};
+
+function toDate(d: Date | string | null): Date | null {
+  if (d == null) return null;
+  return typeof d === "string" ? new Date(d) : d;
+}
+
+export function ManagerActiveAssignmentCard(props: Props) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+
+  const dueDate = toDate(props.dueAt);
+  const dueInputValue = dueDate
+    ? dueDate.toISOString().slice(0, 10)
+    : "";
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900/80 dark:shadow-none">
+      <div className="border-b border-zinc-100 bg-zinc-50/90 px-5 py-3.5 dark:border-zinc-800 dark:bg-zinc-950/60">
+        <p className="text-xs font-medium tracking-wide text-zinc-500 uppercase">
+          Request &amp; assignee
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-zinc-700 dark:text-zinc-300">
+          <span className="font-medium text-zinc-900 dark:text-white">
+            {props.creatorName ?? "Unknown agent"}
+          </span>
+          <span className="text-zinc-400">→</span>
+          <span>{props.assigneeName ?? "Unassigned"}</span>
+          {props.projectName ? (
+            <>
+              <span className="hidden text-zinc-300 sm:inline dark:text-zinc-600">
+                ·
+              </span>
+              <span className="text-zinc-600 dark:text-zinc-400">
+                {props.projectName}
+              </span>
+            </>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="px-5 py-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <h4 className="text-base font-semibold text-zinc-900 dark:text-white">
+              {props.title}
+            </h4>
+            {props.notes ? (
+              <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+                {props.notes}
+              </p>
+            ) : null}
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span
+                className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${executionBadgeStyles(props.executionStatus)}`}
+              >
+                {executionLabel(props.executionStatus)}
+              </span>
+              <span
+                className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${priorityStyles(props.priority)}`}
+              >
+                {props.priority} priority
+              </span>
+              <span className="inline-flex rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+                Due {formatDue(dueDate)}
+              </span>
+            </div>
+          </div>
+          {!editing ? (
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="shrink-0 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
+            >
+              Edit
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      {editing ? (
+        <div className="border-t border-zinc-100 bg-zinc-50/50 px-5 py-4 dark:border-zinc-800 dark:bg-zinc-950/40">
+          <p className="mb-3 text-xs font-medium tracking-wide text-zinc-500 uppercase">
+            Update assignment
+          </p>
+          <form
+            key={`${props.taskId}-${dueInputValue}-${props.assignedToId ?? ""}-${props.priority}`}
+            action={async (formData) => {
+              await managerUpdateAssignment(formData);
+              setEditing(false);
+              router.refresh();
+            }}
+            className="space-y-4"
+          >
+            <input type="hidden" name="id" value={props.taskId} />
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:items-end">
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Assign to
+                <select
+                  name="assignedToId"
+                  defaultValue={props.assignedToId ?? ""}
+                  className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+                >
+                  <option value="">Keep current</option>
+                  {props.admins.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Priority
+                <select
+                  name="priority"
+                  defaultValue={props.priority}
+                  className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+                >
+                  <option value="LOW">Low</option>
+                  <option value="MEDIUM">Medium</option>
+                  <option value="HIGH">High</option>
+                </select>
+              </label>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Due date
+                <input
+                  type="date"
+                  name="dueAt"
+                  defaultValue={dueInputValue}
+                  className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+                />
+              </label>
+            </div>
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEditing(false)}
+                className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-amber-500 dark:bg-amber-600 dark:hover:bg-amber-500"
+              >
+                Save changes
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+    </div>
+  );
+}
