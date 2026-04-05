@@ -57,9 +57,10 @@ export default async function ManagerTasksPage() {
               </span>
             </div>
             <p className="mt-1 text-sm text-rose-900/80 dark:text-rose-200/90">
-              Review the note, then return the task to{" "}
-              <span className="font-medium">In progress</span> when the admin
-              can continue, or use Edit on the card below to reassign.
+              Review the note, then resolve when the admin can continue—the task
+              moves to <span className="font-medium">Active assignments</span>{" "}
+              as <span className="font-medium">In progress</span>, where you can
+              use Edit to reassign or reprioritize.
             </p>
           </div>
           <ul className="divide-y divide-rose-100 dark:divide-rose-900/40">
