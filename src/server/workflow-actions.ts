@@ -49,6 +49,33 @@ export async function createTaskRequest(formData: FormData) {
   revalidateAll();
 }
 
+/** Agent: ask manager to reopen completed work (shows as redo in manager queue) */
+export async function agentRequestRedo(formData: FormData) {
+  const session = await requireRole(["AGENT"]);
+  const id = String(formData.get("id") ?? "").trim();
+  const redoRequestNote = String(formData.get("redoRequestNote") ?? "").trim();
+  if (!id || !redoRequestNote) return;
+
+  const task = await prisma.task.findFirst({
+    where: { id, creatorId: session.user.id },
+  });
+  if (!task || task.reviewStatus !== "APPROVED" || task.executionStatus !== "DONE")
+    return;
+
+  await prisma.task.update({
+    where: { id },
+    data: {
+      reviewStatus: "PENDING_REVIEW",
+      isRedoRequest: true,
+      redoRequestNote,
+      executionStatus: "NOT_STARTED",
+      helpNote: null,
+      managerNote: null,
+    },
+  });
+  revalidateAll();
+}
+
 /** Agent: edit and resubmit after manager asked for changes */
 export async function resubmitTaskRequest(formData: FormData) {
   const session = await requireRole(["AGENT"]);
@@ -91,6 +118,7 @@ export async function deleteMyTaskRequest(formData: FormData) {
   ) {
     return;
   }
+  if (task.isRedoRequest) return;
 
   await prisma.task.delete({ where: { id } });
   revalidateAll();
@@ -176,6 +204,8 @@ export async function managerApprove(formData: FormData) {
       dueAt: parseOptionalDate(formData.get("dueAt")),
       executionStatus: "NOT_STARTED",
       managerNote: null,
+      isRedoRequest: false,
+      redoRequestNote: null,
     },
   });
   revalidateAll();
@@ -197,6 +227,8 @@ export async function managerRequestChanges(formData: FormData) {
       reviewStatus: "CHANGES_REQUESTED",
       managerNote,
       executionStatus: "NOT_STARTED",
+      isRedoRequest: false,
+      redoRequestNote: null,
     },
   });
   revalidateAll();
@@ -218,6 +250,8 @@ export async function managerDeny(formData: FormData) {
       reviewStatus: "DENIED",
       managerNote,
       executionStatus: "NOT_STARTED",
+      isRedoRequest: false,
+      redoRequestNote: null,
     },
   });
   revalidateAll();

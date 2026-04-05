@@ -58,6 +58,8 @@ export default async function ManagerRequestsPage() {
                 agentEmail: t.creator?.email ?? null,
                 createdAt: t.createdAt.toISOString(),
                 updatedAt: t.updatedAt.toISOString(),
+                isRedoRequest: t.isRedoRequest,
+                redoRequestNote: t.redoRequestNote,
               }}
               admins={adminOptions}
             />

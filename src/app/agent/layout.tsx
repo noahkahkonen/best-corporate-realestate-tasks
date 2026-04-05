@@ -22,7 +22,7 @@ export default async function AgentLayout({
           where: {
             creatorId: userId,
             reviewStatus: "APPROVED",
-            executionStatus: { not: "NEEDS_HELP" },
+            executionStatus: { notIn: ["NEEDS_HELP", "DONE"] },
           },
         }),
         prisma.task.count({

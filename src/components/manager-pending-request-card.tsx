@@ -20,6 +20,8 @@ export type PendingTaskPayload = {
   agentEmail: string | null;
   createdAt: string;
   updatedAt: string;
+  isRedoRequest: boolean;
+  redoRequestNote: string | null;
 };
 
 type AdminOption = { id: string; name: string };
@@ -61,8 +63,15 @@ export function ManagerPendingRequestCard({
           )}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate font-medium text-zinc-900 dark:text-white">
-            {task.title}
+          <p className="flex flex-wrap items-center gap-2">
+            <span className="truncate font-medium text-zinc-900 dark:text-white">
+              {task.title}
+            </span>
+            {task.isRedoRequest ? (
+              <span className="shrink-0 rounded bg-rose-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white dark:bg-rose-700">
+                Redo
+              </span>
+            ) : null}
           </p>
           <p className="mt-0.5 text-xs text-zinc-500">
             <span className="text-zinc-700 dark:text-zinc-300">
@@ -88,6 +97,20 @@ export function ManagerPendingRequestCard({
               Submitted {formatDateTime(new Date(task.createdAt))} · Updated{" "}
               {formatDateTime(new Date(task.updatedAt))}
             </p>
+            {task.isRedoRequest ? (
+              <div className="rounded-md border border-rose-200 bg-rose-50/90 px-3 py-2 text-sm text-rose-950 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-100">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-700 dark:text-rose-300">
+                  Agent redo request
+                </p>
+                {task.redoRequestNote ? (
+                  <p className="mt-1 whitespace-pre-wrap">{task.redoRequestNote}</p>
+                ) : (
+                  <p className="mt-1 text-xs text-rose-700/80 dark:text-rose-300/80">
+                    (No note provided)
+                  </p>
+                )}
+              </div>
+            ) : null}
             {task.notes ? (
               <div className="rounded-md border border-zinc-100 bg-zinc-50/80 px-3 py-2 text-sm text-zinc-700 dark:border-zinc-800 dark:bg-zinc-950/50 dark:text-zinc-300">
                 <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">

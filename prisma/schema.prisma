@@ -55,6 +55,8 @@ model Task {
   executionStatus ExecutionStatus @default(NOT_STARTED)
   managerNote     String?
   helpNote        String?
+  isRedoRequest   Boolean         @default(false)
+  redoRequestNote String?
 }
 
 enum ReviewStatus {
