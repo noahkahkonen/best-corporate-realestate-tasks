@@ -1,11 +1,21 @@
 import { logout } from "@/server/logout";
 import { ManagerNav } from "@/components/manager-nav";
+import { prisma } from "@/lib/prisma";
 
-export default function ManagerLayout({
+export const dynamic = "force-dynamic";
+
+export default async function ManagerLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const taskRequestCount = await prisma.task.count({
+    where: {
+      reviewStatus: "PENDING_REVIEW",
+      creator: { role: "AGENT" },
+    },
+  });
+
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
@@ -33,7 +43,7 @@ export default function ManagerLayout({
           </form>
         </div>
       </header>
-      <ManagerNav />
+      <ManagerNav taskRequestCount={taskRequestCount} />
       <div className="pt-8">{children}</div>
     </div>
   );
