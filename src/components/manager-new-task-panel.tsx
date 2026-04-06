@@ -12,7 +12,7 @@ export function ManagerNewTaskPanel({
   admins,
   projects,
 }: {
-  children: ReactNode;
+  children?: ReactNode;
   admins: AdminOption[];
   projects: ProjectOption[];
 }) {
@@ -20,9 +20,17 @@ export function ManagerNewTaskPanel({
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">{children}</div>
+    <div className="w-full space-y-3">
+      <div
+        className={
+          children
+            ? "flex flex-wrap items-start justify-between gap-4"
+            : "flex justify-end"
+        }
+      >
+        {children ? (
+          <div className="min-w-0 flex-1">{children}</div>
+        ) : null}
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}

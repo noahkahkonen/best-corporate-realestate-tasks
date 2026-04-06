@@ -1,5 +1,6 @@
 import { logout } from "@/server/logout";
 import { ManagerNav } from "@/components/manager-nav";
+import { ManagerNewTaskToolbar } from "@/components/manager-new-task-toolbar";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +10,7 @@ export default async function ManagerLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [taskRequestCount, supportCount] = await Promise.all([
+  const [taskRequestCount, supportCount, admins, projects] = await Promise.all([
     prisma.task.count({
       where: {
         reviewStatus: "PENDING_REVIEW",
@@ -22,7 +23,19 @@ export default async function ManagerLayout({
         executionStatus: "NEEDS_HELP",
       },
     }),
+    prisma.user.findMany({
+      where: { role: "ADMIN" },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+    prisma.project.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
   ]);
+
+  const adminOptions = admins.map((a) => ({ id: a.id, name: a.name }));
+  const projectOptions = projects.map((p) => ({ id: p.id, name: p.name }));
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
@@ -50,6 +63,7 @@ export default async function ManagerLayout({
           </form>
         </div>
       </header>
+      <ManagerNewTaskToolbar admins={adminOptions} projects={projectOptions} />
       <ManagerNav taskRequestCount={taskRequestCount} supportCount={supportCount} />
       <div className="pt-8">{children}</div>
     </div>
