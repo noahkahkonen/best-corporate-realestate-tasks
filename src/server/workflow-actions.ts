@@ -1,20 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { ExecutionStatus, Priority } from "@prisma/client";
+import type { ExecutionStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
+import { parsePriorityFromForm } from "@/lib/priority";
 
 const paths = ["/agent", "/manager", "/admin"];
 
 function revalidateAll() {
   for (const p of paths) revalidatePath(p, "layout");
-}
-
-function parsePriority(v: FormDataEntryValue | null): Priority {
-  const s = String(v ?? "MEDIUM");
-  if (s === "LOW" || s === "HIGH") return s;
-  return "MEDIUM";
 }
 
 function parseOptionalDate(v: FormDataEntryValue | null): Date | null {
@@ -38,7 +33,7 @@ export async function createTaskRequest(formData: FormData) {
     data: {
       title,
       notes: String(formData.get("notes") ?? "").trim() || null,
-      priority: parsePriority(formData.get("priority")),
+      priority: parsePriorityFromForm(formData.get("priority")),
       dueAt: parseOptionalDate(formData.get("dueAt")),
       creatorId: session.user.id,
       reviewStatus: "PENDING_REVIEW",
@@ -93,7 +88,7 @@ export async function resubmitTaskRequest(formData: FormData) {
     data: {
       ...(title ? { title } : {}),
       notes: String(formData.get("notes") ?? "").trim() || null,
-      priority: parsePriority(formData.get("priority")),
+      priority: parsePriorityFromForm(formData.get("priority")),
       dueAt: parseOptionalDate(formData.get("dueAt")),
       reviewStatus: "PENDING_REVIEW",
       managerNote: null,
@@ -157,7 +152,7 @@ export async function managerCreateApprovedTask(formData: FormData) {
     data: {
       title,
       notes: String(formData.get("notes") ?? "").trim() || null,
-      priority: parsePriority(formData.get("priority")),
+      priority: parsePriorityFromForm(formData.get("priority")),
       dueAt: parseOptionalDate(formData.get("dueAt")),
       creatorId: session.user.id,
       assignedToId,
@@ -200,7 +195,7 @@ export async function managerApprove(formData: FormData) {
     data: {
       reviewStatus: "APPROVED",
       assignedToId,
-      priority: parsePriority(formData.get("priority")),
+      priority: parsePriorityFromForm(formData.get("priority")),
       dueAt: parseOptionalDate(formData.get("dueAt")),
       executionStatus: "NOT_STARTED",
       managerNote: null,
@@ -278,7 +273,7 @@ export async function managerUpdateAssignment(formData: FormData) {
     where: { id },
     data: {
       ...(assignedToId ? { assignedToId } : {}),
-      priority: parsePriority(formData.get("priority")),
+      priority: parsePriorityFromForm(formData.get("priority")),
       dueAt: parseOptionalDate(formData.get("dueAt")),
     },
   });

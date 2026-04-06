@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { ExecutionStatus, Priority } from "@prisma/client";
+import type { ExecutionStatus } from "@prisma/client";
 import { formatDue } from "@/lib/format-due";
 import {
   executionBadgeStyles,
@@ -10,6 +10,7 @@ import {
   priorityStyles,
 } from "@/lib/manager-task-display";
 import { managerUpdateAssignment } from "@/server/workflow-actions";
+import { PrioritySelect } from "@/components/priority-select";
 
 export type AdminOption = { id: string; name: string };
 
@@ -21,7 +22,7 @@ type Props = {
   title: string;
   notes: string | null;
   executionStatus: ExecutionStatus;
-  priority: Priority;
+  priority: number;
   /** Serialized across the server/client boundary as ISO string when needed */
   dueAt: Date | string | null;
   assignedToId: string | null;
@@ -88,7 +89,7 @@ export function ManagerActiveAssignmentCard(props: Props) {
               <span
                 className={`inline-flex rounded-full px-2 py-0.5 font-medium ${priorityStyles(props.priority)}`}
               >
-                {props.priority} priority
+                P{props.priority}
               </span>
               <span className="text-zinc-500 dark:text-zinc-400">
                 Due {formatDue(dueDate)}
@@ -139,16 +140,12 @@ export function ManagerActiveAssignmentCard(props: Props) {
                 </select>
               </label>
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                Priority
-                <select
+                Priority (1–10)
+                <PrioritySelect
                   name="priority"
                   defaultValue={props.priority}
                   className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
-                >
-                  <option value="LOW">Low</option>
-                  <option value="MEDIUM">Medium</option>
-                  <option value="HIGH">High</option>
-                </select>
+                />
               </label>
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 Due date

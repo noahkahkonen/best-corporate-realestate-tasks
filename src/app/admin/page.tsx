@@ -21,7 +21,7 @@ export default async function AdminPage() {
       reviewStatus: "APPROVED",
     },
     include: { creator: true, project: true },
-    orderBy: { updatedAt: "desc" },
+    orderBy: [{ priority: "desc" }, { updatedAt: "desc" }],
   });
 
   return (
@@ -30,6 +30,9 @@ export default async function AdminPage() {
         <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">
           Assigned to you ({tasks.length})
         </h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          Sorted by priority (10 = highest) within your queue.
+        </p>
         <ul className="mt-4 space-y-5">
           {tasks.length === 0 ? (
             <li className="text-sm text-zinc-500">
@@ -51,8 +54,8 @@ export default async function AdminPage() {
                   </p>
                 ) : null}
                 <p className="mt-2 text-xs text-zinc-500">
-                  Requested by {t.creator?.name ?? "—"} · Priority {t.priority}{" "}
-                  · Due {formatDue(t.dueAt)}
+                  Requested by {t.creator?.name ?? "—"} · P{t.priority} · Due{" "}
+                  {formatDue(t.dueAt)}
                   {t.project ? ` · ${t.project.name}` : ""}
                 </p>
 

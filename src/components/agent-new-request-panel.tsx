@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createTaskRequest } from "@/server/workflow-actions";
+import { PrioritySelect } from "@/components/priority-select";
 
 type ProjectOption = { id: string; name: string };
 
@@ -50,16 +51,12 @@ export function AgentNewRequestPanel({ projects }: { projects: ProjectOption[] }
             />
           </label>
           <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Priority (your suggestion)
-            <select
+            Priority (your suggestion, 1–10)
+            <PrioritySelect
               name="priority"
-              defaultValue="MEDIUM"
+              defaultValue={5}
               className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-            >
-              <option value="LOW">Low</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="HIGH">High</option>
-            </select>
+            />
           </label>
           <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
             Due date
@@ -69,6 +66,10 @@ export function AgentNewRequestPanel({ projects }: { projects: ProjectOption[] }
               className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
             />
           </label>
+          <p className="sm:col-span-2 text-xs text-zinc-500">
+            1 = lowest urgency, 10 = highest. Your manager sets the final
+            number when they assign an admin.
+          </p>
           <label className="sm:col-span-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
             Project (optional)
             <select

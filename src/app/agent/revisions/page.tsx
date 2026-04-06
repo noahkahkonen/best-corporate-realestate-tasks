@@ -5,6 +5,7 @@ import {
   deleteMyTaskRequest,
   resubmitTaskRequest,
 } from "@/server/workflow-actions";
+import { PrioritySelect } from "@/components/priority-select";
 
 export const dynamic = "force-dynamic";
 
@@ -187,16 +188,12 @@ export default async function AgentRevisionsPage() {
                     />
                   </label>
                   <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                    Priority
-                    <select
+                    Priority (1–10)
+                    <PrioritySelect
                       name="priority"
                       defaultValue={t.priority}
                       className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                    >
-                      <option value="LOW">Low</option>
-                      <option value="MEDIUM">Medium</option>
-                      <option value="HIGH">High</option>
-                    </select>
+                    />
                   </label>
                   <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                     Due date

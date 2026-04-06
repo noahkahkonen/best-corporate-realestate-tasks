@@ -88,7 +88,7 @@ export default async function ManagerCompletedPage() {
                   </div>
                   <div>
                     <dt className="inline font-medium text-zinc-500">
-                      Priority:{" "}
+                      Priority (1–10):{" "}
                     </dt>
                     <dd className="inline">{t.priority}</dd>
                   </div>

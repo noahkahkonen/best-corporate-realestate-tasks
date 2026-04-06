@@ -1,20 +1,19 @@
-import type { ExecutionStatus, Priority } from "@prisma/client";
+import type { ExecutionStatus } from "@prisma/client";
 
 export function executionLabel(s: ExecutionStatus): string {
   return s.replace(/_/g, " ");
 }
 
-export function priorityStyles(p: Priority): string {
-  switch (p) {
-    case "HIGH":
-      return "bg-rose-100 text-rose-900 dark:bg-rose-950/80 dark:text-rose-100";
-    case "MEDIUM":
-      return "bg-amber-100 text-amber-950 dark:bg-amber-950/60 dark:text-amber-100";
-    case "LOW":
-      return "bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-100";
-    default:
-      return "bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-100";
+/** Visual weight by numeric priority (1–10). */
+export function priorityStyles(p: number): string {
+  const n = Math.min(10, Math.max(1, Math.round(p)));
+  if (n <= 4) {
+    return "bg-slate-200 text-slate-900 dark:bg-slate-700 dark:text-slate-100";
   }
+  if (n <= 7) {
+    return "bg-amber-100 text-amber-950 dark:bg-amber-950/60 dark:text-amber-100";
+  }
+  return "bg-rose-100 text-rose-900 dark:bg-rose-950/80 dark:text-rose-100";
 }
 
 export function executionBadgeStyles(s: ExecutionStatus): string {

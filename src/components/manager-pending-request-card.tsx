@@ -8,12 +8,13 @@ import {
   managerDeny,
   managerRequestChanges,
 } from "@/server/workflow-actions";
+import { PrioritySelect } from "@/components/priority-select";
 
 export type PendingTaskPayload = {
   id: string;
   title: string;
   notes: string | null;
-  priority: string;
+  priority: number;
   dueAt: string | null;
   projectName: string | null;
   agentName: string | null;
@@ -78,7 +79,7 @@ export function ManagerPendingRequestCard({
               {task.agentName ?? "Unknown"}
             </span>
             {" · "}
-            {task.priority} · Due {formatDue(dueDate)}
+            P{task.priority} · Due {formatDue(dueDate)}
             {task.projectName ? ` · ${task.projectName}` : ""}
           </p>
         </div>
@@ -189,16 +190,12 @@ export function ManagerPendingRequestCard({
                   </select>
                 </label>
                 <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                  Priority
-                  <select
+                  Priority (1–10)
+                  <PrioritySelect
                     name="priority"
                     defaultValue={task.priority}
                     className="mt-1 w-full rounded-md border border-zinc-200 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                  >
-                    <option value="LOW">Low</option>
-                    <option value="MEDIUM">Medium</option>
-                    <option value="HIGH">High</option>
-                  </select>
+                  />
                 </label>
                 <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
                   Due
