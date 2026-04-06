@@ -137,7 +137,8 @@ export default async function AgentRequestsPage() {
                       </p>
                     ) : null}
                   </div>
-                  {t.reviewStatus === "PENDING_REVIEW" ? (
+                  {t.reviewStatus === "PENDING_REVIEW" ||
+                  t.reviewStatus === "DENIED" ? (
                     <form action={deleteMyTaskRequest} className="shrink-0">
                       <input type="hidden" name="id" value={t.id} />
                       <button

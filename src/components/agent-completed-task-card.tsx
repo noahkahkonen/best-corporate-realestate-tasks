@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { formatDue } from "@/lib/format-due";
-import { agentRequestRedo } from "@/server/workflow-actions";
+import { agentRequestRedo, deleteMyTaskRequest } from "@/server/workflow-actions";
 
 export type CompletedTaskPayload = {
   id: string;
@@ -85,6 +85,15 @@ export function AgentCompletedTaskCard({ task }: { task: CompletedTaskPayload })
               className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
             >
               Submit redo request
+            </button>
+          </form>
+          <form action={deleteMyTaskRequest} className="mt-3 border-t border-zinc-100 pt-3 dark:border-zinc-800">
+            <input type="hidden" name="id" value={task.id} />
+            <button
+              type="submit"
+              className="text-xs font-medium text-rose-600 hover:underline dark:text-rose-400"
+            >
+              Delete from your list
             </button>
           </form>
         </div>

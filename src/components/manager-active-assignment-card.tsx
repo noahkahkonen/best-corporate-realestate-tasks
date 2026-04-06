@@ -9,7 +9,10 @@ import {
   executionLabel,
   priorityStyles,
 } from "@/lib/manager-task-display";
-import { managerUpdateAssignment } from "@/server/workflow-actions";
+import {
+  managerDeleteTask,
+  managerUpdateAssignment,
+} from "@/server/workflow-actions";
 import { PrioritySelect } from "@/components/priority-select";
 
 export type AdminOption = { id: string; name: string };
@@ -175,6 +178,19 @@ export function ManagerActiveAssignmentCard(props: Props) {
           </form>
         </div>
       ) : null}
+
+      <form
+        action={managerDeleteTask}
+        className="border-t border-zinc-100 px-4 py-2.5 dark:border-zinc-800"
+      >
+        <input type="hidden" name="id" value={props.taskId} />
+        <button
+          type="submit"
+          className="text-xs font-medium text-rose-600 hover:underline dark:text-rose-400"
+        >
+          Delete task
+        </button>
+      </form>
     </div>
   );
 }

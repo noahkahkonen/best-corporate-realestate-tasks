@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 import { ManagerActiveAssignmentCard } from "@/components/manager-active-assignment-card";
+import { managerDeleteTask } from "@/server/workflow-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -82,15 +83,29 @@ export default async function ManagerTasksPage() {
           </div>
           <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
             {denied.map((t) => (
-              <li key={t.id} className="px-4 py-3 text-sm">
-                <span className="font-medium text-zinc-900 dark:text-white">
-                  {t.title}
-                </span>
-                {t.managerNote ? (
-                  <p className="mt-1.5 text-zinc-600 dark:text-zinc-400">
-                    {t.managerNote}
-                  </p>
-                ) : null}
+              <li
+                key={t.id}
+                className="flex flex-wrap items-start justify-between gap-3 px-4 py-3 text-sm"
+              >
+                <div className="min-w-0 flex-1">
+                  <span className="font-medium text-zinc-900 dark:text-white">
+                    {t.title}
+                  </span>
+                  {t.managerNote ? (
+                    <p className="mt-1.5 text-zinc-600 dark:text-zinc-400">
+                      {t.managerNote}
+                    </p>
+                  ) : null}
+                </div>
+                <form action={managerDeleteTask} className="shrink-0">
+                  <input type="hidden" name="id" value={t.id} />
+                  <button
+                    type="submit"
+                    className="text-xs font-medium text-rose-600 hover:underline dark:text-rose-400"
+                  >
+                    Delete
+                  </button>
+                </form>
               </li>
             ))}
           </ul>

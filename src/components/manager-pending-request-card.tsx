@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { formatDue, formatDateTime } from "@/lib/format-due";
 import {
   managerApprove,
+  managerDeleteTask,
   managerDeny,
   managerRequestChanges,
 } from "@/server/workflow-actions";
@@ -122,6 +123,15 @@ export function ManagerPendingRequestCard({
             ) : (
               <p className="text-xs text-zinc-400">No extra details.</p>
             )}
+            <form action={managerDeleteTask}>
+              <input type="hidden" name="id" value={task.id} />
+              <button
+                type="submit"
+                className="text-xs font-medium text-rose-600 hover:underline dark:text-rose-400"
+              >
+                Delete request
+              </button>
+            </form>
           </div>
 
           <div className="flex flex-wrap gap-1.5 border-t border-zinc-100 bg-zinc-50/80 px-3 py-2.5 pl-10 dark:border-zinc-800 dark:bg-zinc-900/40">

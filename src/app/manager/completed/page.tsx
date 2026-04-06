@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 import { formatDue, formatDateTime } from "@/lib/format-due";
+import { managerDeleteTask } from "@/server/workflow-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -93,6 +94,15 @@ export default async function ManagerCompletedPage() {
                     <dd className="inline">{t.priority}</dd>
                   </div>
                 </dl>
+                <form action={managerDeleteTask} className="mt-3">
+                  <input type="hidden" name="id" value={t.id} />
+                  <button
+                    type="submit"
+                    className="text-sm font-medium text-rose-600 hover:underline dark:text-rose-400"
+                  >
+                    Delete task
+                  </button>
+                </form>
               </div>
             </li>
           ))

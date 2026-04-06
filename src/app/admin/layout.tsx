@@ -1,4 +1,5 @@
 import { logout } from "@/server/logout";
+import { AdminNav } from "@/components/admin-nav";
 
 export default function AdminLayout({
   children,
@@ -7,8 +8,8 @@ export default function AdminLayout({
 }) {
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
-      <header className="mb-8 flex flex-wrap items-start justify-between gap-4 border-b border-zinc-200 pb-6 dark:border-zinc-800">
-        <div>
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="pb-6">
           <p className="text-xs font-semibold tracking-widest text-emerald-700 uppercase dark:text-emerald-400">
             Admin portal
           </p>
@@ -16,11 +17,11 @@ export default function AdminLayout({
             My assignments
           </h1>
           <p className="mt-1 max-w-xl text-sm text-zinc-600 dark:text-zinc-400">
-            Update status on work assigned to you. Request help if you are
-            blocked—managers will see it on their dashboard.
+            Update status on active work. Request help if blocked—managers see
+            it on Admin support.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 pb-6">
           <form action={logout}>
             <button
               type="submit"
@@ -31,7 +32,8 @@ export default function AdminLayout({
           </form>
         </div>
       </header>
-      {children}
+      <AdminNav />
+      <div className="pt-8">{children}</div>
     </div>
   );
 }

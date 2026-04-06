@@ -97,7 +97,24 @@ export async function resubmitTaskRequest(formData: FormData) {
   revalidateAll();
 }
 
-/** Agent: delete own request if still pending review or changes requested */
+function agentMayDeleteOwnTask(task: {
+  reviewStatus: string;
+  executionStatus: string;
+}): boolean {
+  if (task.reviewStatus === "APPROVED") {
+    return task.executionStatus === "DONE";
+  }
+  if (
+    task.reviewStatus === "PENDING_REVIEW" ||
+    task.reviewStatus === "CHANGES_REQUESTED" ||
+    task.reviewStatus === "DENIED"
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/** Agent: delete own task (pending/changes/denied, or completed approved work) */
 export async function deleteMyTaskRequest(formData: FormData) {
   const session = await requireRole(["AGENT"]);
   const id = String(formData.get("id") ?? "");
@@ -106,15 +123,30 @@ export async function deleteMyTaskRequest(formData: FormData) {
   const task = await prisma.task.findFirst({
     where: { id, creatorId: session.user.id },
   });
-  if (!task) return;
-  if (
-    task.reviewStatus !== "PENDING_REVIEW" &&
-    task.reviewStatus !== "CHANGES_REQUESTED"
-  ) {
-    return;
-  }
-  if (task.isRedoRequest) return;
+  if (!task || !agentMayDeleteOwnTask(task)) return;
 
+  await prisma.task.delete({ where: { id } });
+  revalidateAll();
+}
+
+/** Manager: delete any task */
+export async function managerDeleteTask(formData: FormData) {
+  await requireRole(["MANAGER"]);
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) return;
+  await prisma.task.delete({ where: { id } });
+  revalidateAll();
+}
+
+/** Admin: delete a task assigned to you */
+export async function adminDeleteAssignedTask(formData: FormData) {
+  const session = await requireRole(["ADMIN"]);
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) return;
+  const task = await prisma.task.findFirst({
+    where: { id, assignedToId: session.user.id },
+  });
+  if (!task) return;
   await prisma.task.delete({ where: { id } });
   revalidateAll();
 }
