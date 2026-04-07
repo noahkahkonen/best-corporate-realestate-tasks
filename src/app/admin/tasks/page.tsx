@@ -1,19 +1,39 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 import { AdminAssignmentCard } from "@/components/admin-assignment-card";
+import { AdminPagination } from "@/components/admin-pagination";
+import {
+  ADMIN_TASKS_PER_PAGE,
+  parsePageParam,
+} from "@/lib/admin-paging";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminTasksPage() {
+export default async function AdminTasksPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const session = await requireRole(["ADMIN"]);
+  const params = await searchParams;
+  const requestedPage = parsePageParam(params.page);
+
+  const where = {
+    assignedToId: session.user.id,
+    reviewStatus: "APPROVED" as const,
+    executionStatus: { not: "DONE" as const },
+  };
+
+  const total = await prisma.task.count({ where });
+  const totalPages = Math.max(1, Math.ceil(total / ADMIN_TASKS_PER_PAGE));
+  const page = Math.min(requestedPage, totalPages);
+
   const tasks = await prisma.task.findMany({
-    where: {
-      assignedToId: session.user.id,
-      reviewStatus: "APPROVED",
-      executionStatus: { not: "DONE" },
-    },
+    where,
     include: { creator: true, project: true },
     orderBy: [{ priority: "desc" }, { updatedAt: "desc" }],
+    skip: (page - 1) * ADMIN_TASKS_PER_PAGE,
+    take: ADMIN_TASKS_PER_PAGE,
   });
 
   return (
@@ -21,11 +41,12 @@ export default async function AdminTasksPage() {
       <section>
         <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">
           Active assignments{" "}
-          <span className="font-normal text-zinc-500">({tasks.length})</span>
+          <span className="font-normal text-zinc-500">({total})</span>
         </h2>
         <p className="mt-1 text-xs text-zinc-500">
-          Sorted by priority (10 = highest). Mark done on this tab; finished
-          work moves to Completed.
+          Sorted by priority (10 = highest). Up to {ADMIN_TASKS_PER_PAGE} on
+          this screen—use Next for more. Mark done here; finished work moves to
+          Completed.
         </p>
         <ul className="mt-3 space-y-3">
           {tasks.length === 0 ? (
@@ -50,6 +71,7 @@ export default async function AdminTasksPage() {
             ))
           )}
         </ul>
+        <AdminPagination pathname="/admin/tasks" page={page} total={total} />
       </section>
     </div>
   );
