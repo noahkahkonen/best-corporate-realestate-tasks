@@ -6,25 +6,28 @@ import { usePathname } from "next/navigation";
 type Tab = {
   href: string;
   label: string;
-  countKey: "pending" | "tasks" | "revisions" | null;
+  countKey: "pending" | "tasks" | "help" | "revisions" | null;
 };
 
 const tabs: Tab[] = [
   { href: "/agent/requests", label: "Your requests", countKey: "pending" },
   { href: "/agent/tasks", label: "Current tasks", countKey: "tasks" },
   { href: "/agent/completed", label: "Completed", countKey: null },
+  { href: "/agent/help", label: "Help", countKey: "help" },
   { href: "/agent/revisions", label: "Revisions", countKey: "revisions" },
 ];
 
 type Props = {
   pendingCount: number;
   tasksCount: number;
+  helpCount: number;
   revisionsCount: number;
 };
 
 export function AgentNav({
   pendingCount,
   tasksCount,
+  helpCount,
   revisionsCount,
 }: Props) {
   const pathname = usePathname();
@@ -32,6 +35,7 @@ export function AgentNav({
   const countFor = (key: Tab["countKey"]) => {
     if (key === "pending") return pendingCount;
     if (key === "tasks") return tasksCount;
+    if (key === "help") return helpCount;
     if (key === "revisions") return revisionsCount;
     return null;
   };
@@ -51,7 +55,9 @@ export function AgentNav({
             ? `${count} pending request${count === 1 ? "" : "s"}`
             : countKey === "tasks"
               ? `${count} current task${count === 1 ? "" : "s"}`
-              : `${count} revision${count === 1 ? "" : "s"}`;
+              : countKey === "help"
+                ? `${count} help request${count === 1 ? "" : "s"} awaiting your reply`
+                : `${count} revision${count === 1 ? "" : "s"}`;
 
         return (
           <Link

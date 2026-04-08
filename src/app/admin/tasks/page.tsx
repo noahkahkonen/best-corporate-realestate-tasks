@@ -30,8 +30,15 @@ export default async function AdminTasksPage({
 
   const tasks = await prisma.task.findMany({
     where,
-    include: { creator: true, project: true },
-    orderBy: [{ priority: "desc" }, { updatedAt: "desc" }],
+    include: {
+      creator: true,
+      project: true,
+      helpMessages: {
+        orderBy: { createdAt: "asc" },
+        include: { author: { select: { name: true, role: true } } },
+      },
+    },
+    orderBy: [{ priority: "asc" }, { updatedAt: "desc" }],
     skip: (page - 1) * ADMIN_TASKS_PER_PAGE,
     take: ADMIN_TASKS_PER_PAGE,
   });
@@ -44,11 +51,11 @@ export default async function AdminTasksPage({
           <span className="font-normal text-zinc-500">({total})</span>
         </h2>
         <p className="mt-1 text-xs text-zinc-500">
-          Sorted by priority (10 = highest). Up to {ADMIN_TASKS_PER_PAGE} on
-          this screen—use Next for more. Mark done here; finished work moves to
-          Completed.
+          Sorted by priority (lowest number first). Up to {ADMIN_TASKS_PER_PAGE}{" "}
+          on this screen—use Next for more. Mark done here; finished work moves
+          to Completed.
         </p>
-        <ul className="mt-3 space-y-3">
+        <ul className="mt-2 space-y-2">
           {tasks.length === 0 ? (
             <li className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/80 px-5 py-10 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900/40">
               No active assignments. Managers assign work after approval.
@@ -66,6 +73,7 @@ export default async function AdminTasksPage({
                   creatorName={t.creator?.name ?? null}
                   projectName={t.project?.name ?? null}
                   helpNote={t.helpNote}
+                  helpMessages={t.helpMessages}
                 />
               </li>
             ))

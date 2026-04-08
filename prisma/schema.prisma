@@ -17,6 +17,7 @@ model User {
   createdAt            DateTime @default(now())
   tasksCreated         Task[]   @relation("TaskCreator")
   tasksAssigned        Task[]   @relation("TaskAssignee")
+  helpMessagesAuthored HelpMessage[]
 }
 
 enum Role {
@@ -57,6 +58,19 @@ model Task {
   helpNote        String?
   isRedoRequest   Boolean         @default(false)
   redoRequestNote String?
+  helpMessages    HelpMessage[]
+}
+
+model HelpMessage {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([taskId, createdAt])
 }
 
 enum ReviewStatus {

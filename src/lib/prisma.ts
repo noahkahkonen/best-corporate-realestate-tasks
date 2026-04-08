@@ -1,7 +1,33 @@
 import { PrismaClient } from "@prisma/client";
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+/**
+ * Dev HMR can keep a stale PrismaClient on `globalThis` from before
+ * `prisma generate`, which then rejects new relations (e.g. helpMessages).
+ * Bump `PRISMA_CLIENT_VERSION` after schema changes that add models/relations.
+ */
+const PRISMA_CLIENT_VERSION = 2;
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient();
+const globalForPrisma = globalThis as typeof globalThis & {
+  prisma?: PrismaClient;
+  prismaClientVersion?: number;
+};
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+function getClient(): PrismaClient {
+  const stale =
+    globalForPrisma.prisma != null &&
+    globalForPrisma.prismaClientVersion !== PRISMA_CLIENT_VERSION;
+
+  if (stale) {
+    void globalForPrisma.prisma?.$disconnect();
+    globalForPrisma.prisma = undefined;
+  }
+
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = new PrismaClient();
+    globalForPrisma.prismaClientVersion = PRISMA_CLIENT_VERSION;
+  }
+
+  return globalForPrisma.prisma;
+}
+
+export const prisma = getClient();

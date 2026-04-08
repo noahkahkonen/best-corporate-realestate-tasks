@@ -1,11 +1,45 @@
+import { auth } from "@/auth";
 import { logout } from "@/server/logout";
 import { AdminNav } from "@/components/admin-nav";
+import { prisma } from "@/lib/prisma";
+import { helpThreadHasUnreadAgentReplyForAdmin } from "@/lib/help-thread";
 
-export default function AdminLayout({
+export const dynamic = "force-dynamic";
+
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await auth();
+  const adminId = session?.user?.id;
+  const isAdmin = session?.user?.role === "ADMIN";
+
+  let agentReplyUnread = 0;
+  if (adminId && isAdmin) {
+    const rows = await prisma.task.findMany({
+      where: {
+        assignedToId: adminId,
+        reviewStatus: "APPROVED",
+        executionStatus: "NEEDS_HELP",
+      },
+      select: {
+        creatorId: true,
+        assignedToId: true,
+        helpNote: true,
+        executionStatus: true,
+        helpMessages: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { authorId: true },
+        },
+      },
+    });
+    agentReplyUnread = rows.filter((t) =>
+      helpThreadHasUnreadAgentReplyForAdmin(t),
+    ).length;
+  }
+
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
@@ -18,7 +52,8 @@ export default function AdminLayout({
           </h1>
           <p className="mt-1 max-w-xl text-sm text-zinc-600 dark:text-zinc-400">
             Update status on active work. Request help if blocked—managers see
-            it on Admin support.
+            it on Admin support. When an agent replies in the help thread, a
+            badge appears on Tasks.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 pb-6">
@@ -32,7 +67,7 @@ export default function AdminLayout({
           </form>
         </div>
       </header>
-      <AdminNav />
+      <AdminNav agentReplyUnread={agentReplyUnread} />
       <div className="pt-8">{children}</div>
     </div>
   );

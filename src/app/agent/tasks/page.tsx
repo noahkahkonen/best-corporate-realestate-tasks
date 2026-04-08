@@ -1,20 +1,38 @@
+import type { ExecutionStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 import { formatDue } from "@/lib/format-due";
 
 export const dynamic = "force-dynamic";
 
+/** In progress first, then not started; unknown statuses last. */
+const STATUS_SORT: ExecutionStatus[] = ["IN_PROGRESS", "NOT_STARTED"];
+
+function sortAgentCurrentTasks<
+  T extends { executionStatus: ExecutionStatus; priority: number },
+>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => {
+    const ai = STATUS_SORT.indexOf(a.executionStatus);
+    const bi = STATUS_SORT.indexOf(b.executionStatus);
+    const ar = ai === -1 ? STATUS_SORT.length : ai;
+    const br = bi === -1 ? STATUS_SORT.length : bi;
+    if (ar !== br) return ar - br;
+    return a.priority - b.priority;
+  });
+}
+
 export default async function AgentTasksPage() {
   const session = await requireRole(["AGENT"]);
-  const current = await prisma.task.findMany({
-    where: {
-      creatorId: session.user.id,
-      reviewStatus: "APPROVED",
-      executionStatus: { notIn: ["NEEDS_HELP", "DONE"] },
-    },
-    include: { project: true, assignee: true },
-    orderBy: { updatedAt: "desc" },
-  });
+  const current = sortAgentCurrentTasks(
+    await prisma.task.findMany({
+      where: {
+        creatorId: session.user.id,
+        reviewStatus: "APPROVED",
+        executionStatus: { notIn: ["NEEDS_HELP", "DONE"] },
+      },
+      include: { project: true, assignee: true },
+    }),
+  );
 
   return (
     <div className="space-y-6">
@@ -24,7 +42,8 @@ export default async function AgentTasksPage() {
         </h2>
         <p className="mt-1 text-sm text-zinc-500">
           Active work an admin is handling (not yet marked done). Finished work
-          appears under the Completed tab.
+          appears under the Completed tab. Sorted by status (in progress first),
+          then by priority (lower number first).
         </p>
       </div>
 

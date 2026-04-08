@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { logout } from "@/server/logout";
 import { AgentNav } from "@/components/agent-nav";
 import { prisma } from "@/lib/prisma";
+import { helpThreadNeedsAgentReply } from "@/lib/help-thread";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ export default async function AgentLayout({
   const session = await auth();
   const userId = session?.user?.id;
 
-  const [pendingCount, tasksCount, revisionsCount] = userId
+  const [pendingCount, tasksCount, helpCount, revisionsCount] = userId
     ? await Promise.all([
         prisma.task.count({
           where: { creatorId: userId, reviewStatus: "PENDING_REVIEW" },
@@ -25,20 +26,32 @@ export default async function AgentLayout({
             executionStatus: { notIn: ["NEEDS_HELP", "DONE"] },
           },
         }),
-        prisma.task.count({
-          where: {
-            creatorId: userId,
-            OR: [
-              { reviewStatus: "CHANGES_REQUESTED" },
-              {
-                reviewStatus: "APPROVED",
-                executionStatus: "NEEDS_HELP",
+        prisma.task
+          .findMany({
+            where: {
+              creatorId: userId,
+              reviewStatus: "APPROVED",
+              executionStatus: "NEEDS_HELP",
+            },
+            select: {
+              id: true,
+              creatorId: true,
+              assignedToId: true,
+              helpNote: true,
+              executionStatus: true,
+              helpMessages: {
+                orderBy: { createdAt: "desc" },
+                take: 1,
+                select: { authorId: true },
               },
-            ],
-          },
+            },
+          })
+          .then((rows) => rows.filter((t) => helpThreadNeedsAgentReply(t)).length),
+        prisma.task.count({
+          where: { creatorId: userId, reviewStatus: "CHANGES_REQUESTED" },
         }),
       ])
-    : [0, 0, 0];
+    : [0, 0, 0, 0];
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
@@ -52,7 +65,8 @@ export default async function AgentLayout({
           </h1>
           <p className="mt-1 max-w-xl text-sm text-zinc-600 dark:text-zinc-400">
             Submit new work, track approved tasks, and open Revisions when your
-            manager or an admin needs something from you.
+            manager needs something from you. Use the Help tab when an admin
+            requests assistance.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 pb-6">
@@ -69,6 +83,7 @@ export default async function AgentLayout({
       <AgentNav
         pendingCount={pendingCount}
         tasksCount={tasksCount}
+        helpCount={helpCount}
         revisionsCount={revisionsCount}
       />
       <div className="pt-8">{children}</div>

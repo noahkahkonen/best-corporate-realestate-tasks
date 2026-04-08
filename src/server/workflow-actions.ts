@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 import { parsePriorityFromForm } from "@/lib/priority";
 
-const paths = ["/agent", "/manager", "/admin"];
+const paths = ["/agent", "/agent/help", "/manager", "/admin"];
 
 function revalidateAll() {
   for (const p of paths) revalidatePath(p, "layout");
@@ -322,13 +322,72 @@ export async function managerResolveHelpRequest(formData: FormData) {
   if (!task || task.reviewStatus !== "APPROVED") return;
   if (task.executionStatus !== "NEEDS_HELP") return;
 
-  await prisma.task.update({
-    where: { id },
-    data: {
-      executionStatus: "IN_PROGRESS",
-      helpNote: null,
+  await prisma.$transaction([
+    prisma.helpMessage.deleteMany({ where: { taskId: id } }),
+    prisma.task.update({
+      where: { id },
+      data: {
+        executionStatus: "IN_PROGRESS",
+        helpNote: null,
+      },
+    }),
+  ]);
+  revalidateAll();
+}
+
+/** Agent: reply in the help thread while the task is NEEDS_HELP */
+export async function agentReplyToHelp(formData: FormData) {
+  const session = await requireRole(["AGENT"]);
+  const id = String(formData.get("id") ?? "").trim();
+  const body = String(formData.get("body") ?? "").trim();
+  if (!id || !body) return;
+
+  const task = await prisma.task.findFirst({
+    where: {
+      id,
+      creatorId: session.user.id,
+      reviewStatus: "APPROVED",
+      executionStatus: "NEEDS_HELP",
     },
   });
+  if (!task) return;
+
+  await prisma.helpMessage.create({
+    data: {
+      taskId: id,
+      authorId: session.user.id,
+      body,
+    },
+  });
+  revalidateAll();
+}
+
+/** Agent: problem solved — return the assigned admin to in progress */
+export async function agentResolveHelp(formData: FormData) {
+  const session = await requireRole(["AGENT"]);
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) return;
+
+  const task = await prisma.task.findFirst({
+    where: {
+      id,
+      creatorId: session.user.id,
+      reviewStatus: "APPROVED",
+      executionStatus: "NEEDS_HELP",
+    },
+  });
+  if (!task) return;
+
+  await prisma.$transaction([
+    prisma.helpMessage.deleteMany({ where: { taskId: id } }),
+    prisma.task.update({
+      where: { id },
+      data: {
+        executionStatus: "IN_PROGRESS",
+        helpNote: null,
+      },
+    }),
+  ]);
   revalidateAll();
 }
 
@@ -359,12 +418,24 @@ export async function adminUpdateExecution(formData: FormData) {
       ? String(formData.get("helpNote") ?? "").trim() || null
       : null;
 
-  await prisma.task.update({
-    where: { id },
-    data: {
-      executionStatus,
-      helpNote,
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.task.update({
+      where: { id },
+      data: {
+        executionStatus,
+        helpNote,
+      },
+    });
+
+    if (executionStatus === "NEEDS_HELP" && helpNote) {
+      await tx.helpMessage.create({
+        data: {
+          taskId: id,
+          authorId: session.user.id,
+          body: helpNote,
+        },
+      });
+    }
   });
   revalidateAll();
 }
