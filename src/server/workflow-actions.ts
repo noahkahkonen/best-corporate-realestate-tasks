@@ -301,12 +301,15 @@ export async function managerUpdateAssignment(formData: FormData) {
     if (!adminUser) return;
   }
 
+  const notes = String(formData.get("notes") ?? "").trim() || null;
+
   await prisma.task.update({
     where: { id },
     data: {
       ...(assignedToId ? { assignedToId } : {}),
       priority: parsePriorityFromForm(formData.get("priority")),
       dueAt: parseOptionalDate(formData.get("dueAt")),
+      notes,
     },
   });
   revalidateAll();

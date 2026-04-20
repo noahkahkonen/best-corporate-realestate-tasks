@@ -83,7 +83,7 @@ export function ManagerActiveAssignmentCard(props: Props) {
               {props.title}
             </h4>
             {props.notes ? (
-              <p className="mt-1.5 text-sm leading-snug text-zinc-600 dark:text-zinc-400">
+              <p className="mt-1.5 whitespace-pre-wrap text-sm leading-snug text-zinc-600 dark:text-zinc-400">
                 {props.notes}
               </p>
             ) : null}
@@ -117,7 +117,7 @@ export function ManagerActiveAssignmentCard(props: Props) {
             Update assignment
           </p>
           <form
-            key={`${props.taskId}-${dueInputValue}-${props.assignedToId ?? ""}-${props.priority}`}
+            key={`${props.taskId}-${dueInputValue}-${props.assignedToId ?? ""}-${props.priority}-${props.notes ?? ""}`}
             action={async (formData) => {
               await managerUpdateAssignment(formData);
               setEditing(false);
@@ -126,6 +126,16 @@ export function ManagerActiveAssignmentCard(props: Props) {
             className="space-y-4"
           >
             <input type="hidden" name="id" value={props.taskId} />
+            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Details
+              <textarea
+                name="notes"
+                rows={3}
+                defaultValue={props.notes ?? ""}
+                placeholder="Instructions for the assignee"
+                className="mt-1.5 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+              />
+            </label>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:items-end">
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 Assign to
