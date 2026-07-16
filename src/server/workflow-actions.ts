@@ -1,10 +1,19 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import type { ExecutionStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 import { parsePriorityFromForm } from "@/lib/priority";
+import {
+  notifyAdminOfAssignment,
+  notifyAdminOfHelpReply,
+  notifyAgentOfHelpRequest,
+  notifyAgentOfManagerResponse,
+  notifyManagersOfRedoRequest,
+  notifyManagersOfRequest,
+} from "@/lib/notifications";
 
 const paths = ["/agent", "/agent/help", "/manager", "/admin"];
 
@@ -29,7 +38,7 @@ export async function createTaskRequest(formData: FormData) {
   const projectId =
     projectIdRaw && String(projectIdRaw) !== "" ? String(projectIdRaw) : null;
 
-  await prisma.task.create({
+  const task = await prisma.task.create({
     data: {
       title,
       notes: String(formData.get("notes") ?? "").trim() || null,
@@ -41,6 +50,7 @@ export async function createTaskRequest(formData: FormData) {
       projectId,
     },
   });
+  after(() => notifyManagersOfRequest(task.id, "new"));
   revalidateAll();
 }
 
@@ -68,6 +78,7 @@ export async function agentRequestRedo(formData: FormData) {
       managerNote: null,
     },
   });
+  after(() => notifyManagersOfRedoRequest(id));
   revalidateAll();
 }
 
@@ -94,6 +105,7 @@ export async function resubmitTaskRequest(formData: FormData) {
       managerNote: null,
     },
   });
+  after(() => notifyManagersOfRequest(id, "resubmitted"));
   revalidateAll();
 }
 
@@ -180,7 +192,7 @@ export async function managerCreateApprovedTask(formData: FormData) {
     if (!p) return;
   }
 
-  await prisma.task.create({
+  const task = await prisma.task.create({
     data: {
       title,
       notes: String(formData.get("notes") ?? "").trim() || null,
@@ -193,6 +205,7 @@ export async function managerCreateApprovedTask(formData: FormData) {
       executionStatus: "NOT_STARTED",
     },
   });
+  after(() => notifyAdminOfAssignment(task.id));
   revalidateAll();
 }
 
@@ -235,6 +248,7 @@ export async function managerApprove(formData: FormData) {
       redoRequestNote: null,
     },
   });
+  after(() => notifyAdminOfAssignment(id));
   revalidateAll();
 }
 
@@ -258,6 +272,7 @@ export async function managerRequestChanges(formData: FormData) {
       redoRequestNote: null,
     },
   });
+  after(() => notifyAgentOfManagerResponse(id, "changes"));
   revalidateAll();
 }
 
@@ -281,6 +296,7 @@ export async function managerDeny(formData: FormData) {
       redoRequestNote: null,
     },
   });
+  after(() => notifyAgentOfManagerResponse(id, "denied"));
   revalidateAll();
 }
 
@@ -362,6 +378,7 @@ export async function agentReplyToHelp(formData: FormData) {
       body,
     },
   });
+  after(() => notifyAdminOfHelpReply(id, body));
   revalidateAll();
 }
 
@@ -440,5 +457,11 @@ export async function adminUpdateExecution(formData: FormData) {
       });
     }
   });
+
+  // Each NEEDS_HELP submission with a note posts a message to the thread, so
+  // each one notifies the agent — including follow-ups on an already-stuck task.
+  if (executionStatus === "NEEDS_HELP" && helpNote) {
+    after(() => notifyAgentOfHelpRequest(id));
+  }
   revalidateAll();
 }
