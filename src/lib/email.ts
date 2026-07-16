@@ -85,7 +85,7 @@ export async function sendEmail(
 
   if (!resend) {
     console.warn(
-      `[email] RESEND_API_KEY unset — skipping "${content.subject}" to ${recipients.join(", ")}`,
+      `[email] RESEND_API_KEY unset — skipping "${content.subject}" to ${recipients.join(", ")} (link: ${APP_URL}${content.link.path})`,
     );
     return;
   }

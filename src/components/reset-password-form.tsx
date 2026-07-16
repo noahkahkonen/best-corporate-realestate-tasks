@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { resetPassword } from "@/server/password-reset-actions";
 
-export function LoginForm() {
+export function ResetPasswordForm({ token }: { token: string }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -14,30 +14,13 @@ export function LoginForm() {
     e.preventDefault();
     setError(null);
     setPending(true);
-    const form = e.currentTarget;
-    const fd = new FormData(form);
-    const email = String(fd.get("email") ?? "");
-    const password = String(fd.get("password") ?? "");
-    const res = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
+    const res = await resetPassword(new FormData(e.currentTarget));
     setPending(false);
-    if (!res || res.error) {
-      setError(
-        res?.error === "CredentialsSignin"
-          ? "Invalid email or password."
-          : "Sign-in failed. Check AUTH_SECRET and DATABASE_URL on the server.",
-      );
-      return;
-    }
     if (!res.ok) {
-      setError("Sign-in failed. Please try again.");
+      setError(res.error);
       return;
     }
-    router.push("/");
-    router.refresh();
+    router.push("/login?updated=1");
   }
 
   return (
@@ -45,31 +28,34 @@ export function LoginForm() {
       onSubmit={handleSubmit}
       className="mx-auto w-full max-w-sm space-y-4 rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
     >
+      <input type="hidden" name="token" value={token} />
       <div>
         <h1 className="text-xl font-semibold text-zinc-900 dark:text-white">
-          Sign in
+          Choose a new password
         </h1>
         <p className="mt-1 text-sm text-zinc-500">
-          Use your company portal account (agent, manager, or admin).
+          At least 8 characters. You&apos;ll sign in with it from now on.
         </p>
       </div>
       <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-        Email
+        New password
         <input
-          name="email"
-          type="email"
+          name="newPassword"
+          type="password"
           required
-          autoComplete="email"
+          minLength={8}
+          autoComplete="new-password"
           className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-zinc-900 outline-none ring-indigo-500/30 focus:ring-2 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
         />
       </label>
       <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-        Password
+        Confirm new password
         <input
-          name="password"
+          name="confirmPassword"
           type="password"
           required
-          autoComplete="current-password"
+          minLength={8}
+          autoComplete="new-password"
           className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-zinc-900 outline-none ring-indigo-500/30 focus:ring-2 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
         />
       </label>
@@ -83,13 +69,13 @@ export function LoginForm() {
         disabled={pending}
         className="w-full rounded-lg bg-indigo-600 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
       >
-        {pending ? "Signing in…" : "Sign in"}
+        {pending ? "Saving…" : "Set new password"}
       </button>
       <Link
         href="/forgot-password"
         className="block text-center text-sm font-medium text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
       >
-        Forgot password?
+        Link expired? Request a new one
       </Link>
     </form>
   );

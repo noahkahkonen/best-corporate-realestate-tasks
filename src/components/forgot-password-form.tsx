@@ -2,42 +2,44 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { requestPasswordReset } from "@/server/password-reset-actions";
 
-export function LoginForm() {
-  const router = useRouter();
+export function ForgotPasswordForm() {
   const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
   const [pending, setPending] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     setPending(true);
-    const form = e.currentTarget;
-    const fd = new FormData(form);
-    const email = String(fd.get("email") ?? "");
-    const password = String(fd.get("password") ?? "");
-    const res = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
+    const res = await requestPasswordReset(new FormData(e.currentTarget));
     setPending(false);
-    if (!res || res.error) {
-      setError(
-        res?.error === "CredentialsSignin"
-          ? "Invalid email or password."
-          : "Sign-in failed. Check AUTH_SECRET and DATABASE_URL on the server.",
-      );
-      return;
-    }
     if (!res.ok) {
-      setError("Sign-in failed. Please try again.");
+      setError(res.error);
       return;
     }
-    router.push("/");
-    router.refresh();
+    setSent(true);
+  }
+
+  if (sent) {
+    return (
+      <div className="mx-auto w-full max-w-sm space-y-4 rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <h1 className="text-xl font-semibold text-zinc-900 dark:text-white">
+          Check your email
+        </h1>
+        <p className="text-sm text-zinc-500">
+          If an account exists for that address, we sent a password reset link.
+          It expires in 1 hour.
+        </p>
+        <Link
+          href="/login"
+          className="block text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
+        >
+          Back to sign in
+        </Link>
+      </div>
+    );
   }
 
   return (
@@ -47,10 +49,10 @@ export function LoginForm() {
     >
       <div>
         <h1 className="text-xl font-semibold text-zinc-900 dark:text-white">
-          Sign in
+          Forgot password
         </h1>
         <p className="mt-1 text-sm text-zinc-500">
-          Use your company portal account (agent, manager, or admin).
+          Enter your account email and we&apos;ll send you a reset link.
         </p>
       </div>
       <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
@@ -60,16 +62,6 @@ export function LoginForm() {
           type="email"
           required
           autoComplete="email"
-          className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-zinc-900 outline-none ring-indigo-500/30 focus:ring-2 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-        />
-      </label>
-      <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-        Password
-        <input
-          name="password"
-          type="password"
-          required
-          autoComplete="current-password"
           className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-zinc-900 outline-none ring-indigo-500/30 focus:ring-2 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
         />
       </label>
@@ -83,13 +75,13 @@ export function LoginForm() {
         disabled={pending}
         className="w-full rounded-lg bg-indigo-600 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
       >
-        {pending ? "Signing in…" : "Sign in"}
+        {pending ? "Sending…" : "Send reset link"}
       </button>
       <Link
-        href="/forgot-password"
+        href="/login"
         className="block text-center text-sm font-medium text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
       >
-        Forgot password?
+        Back to sign in
       </Link>
     </form>
   );

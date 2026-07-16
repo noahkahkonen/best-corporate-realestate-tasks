@@ -5,7 +5,7 @@ import { PrismaClient } from "@prisma/client";
  * `prisma generate`, which then rejects new relations (e.g. helpMessages).
  * Bump `PRISMA_CLIENT_VERSION` after schema changes that add models/relations.
  */
-const PRISMA_CLIENT_VERSION = 2;
+const PRISMA_CLIENT_VERSION = 3;
 
 const globalForPrisma = globalThis as typeof globalThis & {
   prisma?: PrismaClient;
