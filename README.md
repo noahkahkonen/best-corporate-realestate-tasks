@@ -40,6 +40,17 @@ Three environment variables, all documented in `.env.example`:
 | `GOOGLE_MAPS_API_KEY` | Address → coordinates when adding a listing (server) |
 | `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID` | Required for the coloured advanced markers |
 
+### Home base
+
+The tab is anchored to one place rather than each piece guessing
+independently: the map opens there, routes leave from and return to it,
+conditions are reported for it, and address search is biased around it. It
+defaults to downtown Columbus. To move it, set all three of
+`NEXT_PUBLIC_DRONE_HOME_LAT`, `NEXT_PUBLIC_DRONE_HOME_LNG`, and
+`NEXT_PUBLIC_DRONE_HOME_LABEL`. `DRONE_TIMEZONE` (default `America/New_York`)
+controls how sunrise, sunset, and the forecast strip are formatted — leave it
+unset and times render in the server's zone, which on Vercel is UTC.
+
 Enable **Maps JavaScript API**, **Places API**, **Directions API**, and
 **Geocoding API** on the project. Restrict the public key by HTTP referrer; the
 server key can stay referrer-free but should be limited to Geocoding. Without
