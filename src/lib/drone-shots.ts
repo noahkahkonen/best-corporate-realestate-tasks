@@ -76,9 +76,38 @@ export function listingLocality(listing: {
   return [cityState, listing.postalCode].filter(Boolean).join(" ");
 }
 
-/** Central Ohio — where the map opens before any pins exist. */
-export const DEFAULT_MAP_CENTER = { lat: 39.9612, lng: -82.9988 };
+/**
+ * Home base: downtown Columbus.
+ *
+ * Everything in the tab is anchored here rather than to whatever happens to be
+ * on screen — the map opens on it, flights depart from and return to it,
+ * conditions are reported for it, and address search is biased around it.
+ * The overrides carry the NEXT_PUBLIC_ prefix because the route planner and the
+ * map read this in the browser while the conditions panel reads it on the
+ * server; an unprefixed variable would be undefined on one side and silently
+ * split the two apart.
+ */
+export const HOME_BASE = {
+  lat: Number(process.env.NEXT_PUBLIC_DRONE_HOME_LAT ?? 39.9612),
+  lng: Number(process.env.NEXT_PUBLIC_DRONE_HOME_LNG ?? -82.9988),
+  label: process.env.NEXT_PUBLIC_DRONE_HOME_LABEL || "Columbus, OH",
+};
+
+/** How far around home base address search stays useful, in metres. */
+export const SEARCH_BIAS_RADIUS_M = 60_000;
+
+export const DEFAULT_MAP_CENTER = { lat: HOME_BASE.lat, lng: HOME_BASE.lng };
 export const DEFAULT_MAP_ZOOM = 10;
+
+/**
+ * The timezone sunrise, sunset, and the forecast are shown in.
+ *
+ * Deliberately explicit rather than the server's clock: Vercel runs in UTC, so
+ * a bare toLocaleTimeString would put sunrise at half ten in the morning. It is
+ * also formatted the same on the server and in the browser, which keeps the
+ * markup stable through hydration.
+ */
+export const DISPLAY_TIMEZONE = process.env.DRONE_TIMEZONE || "America/New_York";
 
 /** The driving-time ceiling for one route, in seconds. */
 export const ROUTE_DRIVE_CAP_SECONDS = 2 * 60 * 60;

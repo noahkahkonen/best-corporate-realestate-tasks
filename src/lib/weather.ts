@@ -93,8 +93,8 @@ function hourAt(
     gustMph: num("wind_gusts_10m"),
     precipChance: num("precipitation_probability"),
     cloudCover: num("cloud_cover"),
-    // Open-Meteo reports visibility in feet when imperial units are requested.
-    visibilityMiles: num("visibility") / 5280,
+    // Open-Meteo reports visibility in metres.
+    visibilityMiles: num("visibility") / 1609.34,
     code: num("weather_code"),
   };
 }
@@ -115,7 +115,6 @@ export async function fetchConditions(
   url.searchParams.set("temperature_unit", "fahrenheit");
   url.searchParams.set("wind_speed_unit", "mph");
   url.searchParams.set("precipitation_unit", "inch");
-  url.searchParams.set("length_unit", "imperial");
   url.searchParams.set("timezone", "auto");
   url.searchParams.set("forecast_days", "2");
 
@@ -132,11 +131,12 @@ export async function fetchConditions(
   if (!hourly?.time) return null;
 
   // Line the forecast up with the current hour rather than the start of the day.
-  const nowIso = new Date().toISOString().slice(0, 13);
-  const startIndex = Math.max(
-    0,
-    hourly.time.findIndex((t) => String(t).slice(0, 13) >= nowIso),
-  );
+  // `timezone=auto` makes every stamp local wall-clock with no offset, so the
+  // cursor has to be the API's own `current.time` — comparing against a UTC
+  // clock would skip the forecast forward by the site's offset.
+  const cursor = String(data.current?.time ?? hourly.time[0] ?? "").slice(0, 13);
+  const found = hourly.time.findIndex((t) => String(t).slice(0, 13) >= cursor);
+  const startIndex = found < 0 ? 0 : found;
 
   const upcoming: HourlyConditions[] = [];
   for (let i = startIndex; i < Math.min(startIndex + 12, hourly.time.length); i++) {

@@ -8,6 +8,8 @@ import { listingHasLiveRequest } from "@/lib/drone-shots-data";
 import {
   DEFAULT_MAP_CENTER,
   DEFAULT_MAP_ZOOM,
+  HOME_BASE,
+  SEARCH_BIAS_RADIUS_M,
   PHOTO_STATUS_META,
   PHOTO_STATUS_ORDER,
   canArchiveListing,
@@ -151,7 +153,16 @@ export function DroneShotsMap({
     }
 
     const { PlaceAutocompleteElement } = google.maps.places;
-    const element = new PlaceAutocompleteElement();
+    // Biased, not restricted: central Ohio addresses surface first, but a
+    // listing outside the metro can still be found by typing it out.
+    const element = new PlaceAutocompleteElement({
+      includedRegionCodes: ["us"],
+      locationBias: new google.maps.Circle({
+        center: { lat: HOME_BASE.lat, lng: HOME_BASE.lng },
+        radius: SEARCH_BIAS_RADIUS_M,
+      }),
+      origin: { lat: HOME_BASE.lat, lng: HOME_BASE.lng },
+    });
     element.style.width = "100%";
     searchNode.current.appendChild(element);
 
@@ -326,8 +337,8 @@ export function DroneShotsMap({
           />
         </label>
         <p className="mt-1.5 text-xs text-zinc-500">
-          Find any address in Google — you can request a drone photo for it even
-          if it isn&apos;t pinned yet.
+          {HOME_BASE.label} results come up first. You can request a drone photo
+          for any address, even one that isn&apos;t pinned yet.
         </p>
 
         {searchHit ? (

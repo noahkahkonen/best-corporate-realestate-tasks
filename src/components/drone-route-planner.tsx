@@ -8,7 +8,7 @@ import {
   planRoute,
   type RoutePlan,
 } from "@/lib/route-planner";
-import { ROUTE_DRIVE_CAP_SECONDS, listingLabel } from "@/lib/drone-shots";
+import { HOME_BASE, ROUTE_DRIVE_CAP_SECONDS, listingLabel } from "@/lib/drone-shots";
 
 /**
  * Builds the day's flight run: the shortest round trip that hits the most
@@ -40,13 +40,10 @@ export function DroneRoutePlanner({
     setError(null);
 
     try {
-      const center = map.getCenter();
-      const origin = center
-        ? { lat: center.lat(), lng: center.lng() }
-        : { lat: needsPhotos[0].latitude, lng: needsPhotos[0].longitude };
-
+      // Always out and back from home base — a route measured from wherever the
+      // map happens to be panned isn't a drive anyone actually makes.
       const result = await planRoute({
-        origin,
+        origin: { lat: HOME_BASE.lat, lng: HOME_BASE.lng },
         candidates: needsPhotos,
         pinnedId: pinnedId || null,
       });
@@ -85,7 +82,7 @@ export function DroneRoutePlanner({
             Route planner
           </h3>
           <p className="text-xs text-zinc-500">
-            Round trip from the map centre, capped at 2 hours driving.
+            Round trip from {HOME_BASE.label}, capped at 2 hours driving.
           </p>
         </div>
         {plan ? (
