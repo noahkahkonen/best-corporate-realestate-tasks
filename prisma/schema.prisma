@@ -19,6 +19,7 @@ model User {
   tasksAssigned        Task[]   @relation("TaskAssignee")
   helpMessagesAuthored HelpMessage[]
   passwordResetTokens  PasswordResetToken[]
+  listingsCreated      Listing[] @relation("ListingCreator")
 }
 
 model PasswordResetToken {
@@ -71,6 +72,12 @@ model Task {
   isRedoRequest   Boolean         @default(false)
   redoRequestNote String?
   helpMessages    HelpMessage[]
+
+  /// Set when the task is a drone shoot requested from the Drone Shots map.
+  listingId String?
+  listing   Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+
+  @@index([listingId])
 }
 
 model HelpMessage {
@@ -97,5 +104,42 @@ enum ExecutionStatus {
   IN_PROGRESS
   DONE
   NEEDS_HELP
+}
+
+/// A property pinned on the Drone Shots map. Added by hand from the portal —
+/// there is no upstream listing feed to sync from.
+model Listing {
+  id           String  @id @default(cuid())
+  name         String?
+  address      String
+  city         String?
+  state        String?
+  postalCode   String?
+  propertyType String?
+  latitude     Float
+  longitude    Float
+
+  photoStatus PhotoStatus @default(NO_PHOTOS)
+  photoNote   String?
+  lastShotAt  DateTime?
+  archived    Boolean     @default(false)
+
+  createdById String?
+  createdBy   User?   @relation("ListingCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Drone shoots are ordinary tasks, so they inherit manager approval,
+  /// assignment, and the completed queue for free.
+  droneTasks Task[]
+
+  @@index([archived, photoStatus])
+}
+
+enum PhotoStatus {
+  NO_PHOTOS
+  NEEDS_MORE
+  HAS_PHOTOS
 }
 

@@ -1,5 +1,50 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Drone Shots
+
+A **Drone Shots** tab in all three portals plots every listing on a Google map
+so flights get planned instead of improvised.
+
+- **Pins are colour-coded by photo state.** Grey means no drone photos, amber
+  means more are needed, green means shot. Grey is the default, so anything
+  un-photographed reads as unfinished at a glance.
+- **Click a pin** for a popup with the address, status, and — for managers and
+  admins — who added the listing and when.
+- **Search any address** through Google Places. Requesting photos for an
+  address that isn't pinned yet drops a new grey pin as a side effect, so the
+  map fills in as people use it.
+- **Requesting a drone photo creates a normal task** in `PENDING_REVIEW`, with
+  the address in the title, the requested completion date as the due date, and
+  special notes in the body. It lands in the manager's approval queue with
+  every other request and inherits assignment, help threads, and the completed
+  queue for free.
+- **Route planner** (admin and manager) builds the shortest round trip that
+  fits the most un-photographed listings into two hours of driving. Google
+  optimises the order of a fixed set of stops but won't choose which to skip,
+  so the selection is ours: seed with the nearest listings, then drop the
+  costliest stop until the drive fits. A listing can be pinned so it is never
+  dropped.
+- **Flight conditions** (admin and manager) show wind, gusts, cloud, and a
+  go/marginal/no-go read from [Open-Meteo](https://open-meteo.com) — keyless
+  and free — plus sunrise, sunset, both golden hours, and where the sun
+  currently sits. The sun maths is computed locally in `src/lib/sun.ts` rather
+  than fetched, so it still works when the network doesn't.
+
+### Google Maps setup
+
+Three environment variables, all documented in `.env.example`:
+
+| Variable | Used for |
+| --- | --- |
+| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Map, pins, address search (browser) |
+| `GOOGLE_MAPS_API_KEY` | Address → coordinates when adding a listing (server) |
+| `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID` | Required for the coloured advanced markers |
+
+Enable **Maps JavaScript API**, **Places API**, **Directions API**, and
+**Geocoding API** on the project. Restrict the public key by HTTP referrer; the
+server key can stay referrer-free but should be limited to Geocoding. Without
+the keys the tab still lists listings — only the map itself goes missing.
+
 ## Getting Started
 
 First, run the development server:
