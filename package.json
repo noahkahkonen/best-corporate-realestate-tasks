@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "build:vercel": "prisma generate && prisma migrate deploy && next build",
+    "build:vercel": "prisma generate && (if [ -n \"$DATABASE_URL\" ]; then prisma migrate deploy; else echo 'WARNING: DATABASE_URL is not set for this Vercel environment — skipping migrations. The app will build, but pages that query the database will fail at runtime. Add DATABASE_URL under Settings -> Environment Variables and tick this environment.'; fi) && next build",
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint",
