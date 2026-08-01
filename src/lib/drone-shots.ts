@@ -80,6 +80,16 @@ export function listingLocality(listing: {
 export const DEFAULT_MAP_CENTER = { lat: 39.9612, lng: -82.9988 };
 export const DEFAULT_MAP_ZOOM = 10;
 
+/**
+ * The timezone sunrise, sunset, and the forecast are shown in.
+ *
+ * Deliberately explicit rather than the server's clock: Vercel runs in UTC, so
+ * a bare toLocaleTimeString would put sunrise at half ten in the morning. It is
+ * also formatted the same on the server and in the browser, which keeps the
+ * markup stable through hydration.
+ */
+export const DISPLAY_TIMEZONE = process.env.DRONE_TIMEZONE || "America/New_York";
+
 /** The driving-time ceiling for one route, in seconds. */
 export const ROUTE_DRIVE_CAP_SECONDS = 2 * 60 * 60;
 

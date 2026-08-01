@@ -1,5 +1,6 @@
 import { fetchConditions, flightVerdict, weatherLabel } from "@/lib/weather";
 import { compassPoint, sunPosition, sunTimes } from "@/lib/sun";
+import { DISPLAY_TIMEZONE } from "@/lib/drone-shots";
 
 const VERDICT_STYLE = {
   GO: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
@@ -15,15 +16,23 @@ const VERDICT_LABEL = {
 
 function time(date: Date | null): string {
   if (!date) return "—";
-  return date.toLocaleTimeString(undefined, {
+  return date.toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
+    timeZone: DISPLAY_TIMEZONE,
   });
 }
 
+/**
+ * Open-Meteo returns local wall-clock stamps with no offset when timezone=auto,
+ * so these are read as-is rather than shifted into the display zone again.
+ */
 function hourLabel(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleTimeString(undefined, { hour: "numeric" });
+  const hour = Number(iso.slice(11, 13));
+  if (!Number.isFinite(hour)) return "—";
+  const suffix = hour < 12 ? "AM" : "PM";
+  const twelve = hour % 12 === 0 ? 12 : hour % 12;
+  return `${twelve} ${suffix}`;
 }
 
 /**
