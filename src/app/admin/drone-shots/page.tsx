@@ -2,7 +2,6 @@ import { requireRole } from "@/lib/auth-helpers";
 import { loadListings } from "@/lib/drone-shots-data";
 import { HOME_BASE } from "@/lib/drone-shots";
 import { DroneShotsMap } from "@/components/drone-shots-map";
-import { DroneAddListing } from "@/components/drone-add-listing";
 import { DroneConditions } from "@/components/drone-conditions";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +17,6 @@ export default async function AdminDroneShotsPage() {
         longitude={HOME_BASE.lng}
         placeLabel={HOME_BASE.label}
       />
-      <DroneAddListing accent="emerald" />
       <DroneShotsMap
         listings={listings}
         role="ADMIN"

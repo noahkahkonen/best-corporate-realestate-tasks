@@ -1,7 +1,6 @@
 import { requireRole } from "@/lib/auth-helpers";
 import { loadListings } from "@/lib/drone-shots-data";
 import { DroneShotsMap } from "@/components/drone-shots-map";
-import { DroneAddListing } from "@/components/drone-add-listing";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +10,6 @@ export default async function AgentDroneShotsPage() {
 
   return (
     <div className="space-y-4">
-      <DroneAddListing accent="indigo" />
       <DroneShotsMap
         listings={listings}
         role="AGENT"

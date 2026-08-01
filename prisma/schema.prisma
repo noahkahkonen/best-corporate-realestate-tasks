@@ -124,6 +124,10 @@ model Listing {
   lastShotAt  DateTime?
   archived    Boolean     @default(false)
 
+  /// Listing agent initials and Sale/Lease/Sale-or-Lease, from the inventory sheet.
+  agent    String?
+  dealType String?
+
   createdById String?
   createdBy   User?   @relation("ListingCreator", fields: [createdById], references: [id], onDelete: SetNull)
 

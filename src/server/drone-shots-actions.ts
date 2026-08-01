@@ -127,34 +127,6 @@ async function findNearby(place: ResolvedPlace) {
   });
 }
 
-/** Put a listing on the map without requesting a flight for it. */
-export async function addListing(
-  _prev: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
-  const session = await requireRole([...ALL_ROLES]);
-
-  const place = await resolvePlace(formData);
-  if (typeof place === "string") return { error: place };
-
-  const existing = await findNearby(place);
-  if (existing) {
-    return { error: `${existing.address} is already on the map.` };
-  }
-
-  await prisma.listing.create({
-    data: {
-      ...place,
-      name: optional(formData.get("name")),
-      propertyType: optional(formData.get("propertyType")),
-      createdById: session.user.id,
-    },
-  });
-
-  revalidateAll();
-  return { ok: `Added ${place.address} to the map.` };
-}
-
 /**
  * Request a drone shoot. This creates an ordinary task in PENDING_REVIEW so it
  * lands in the manager's approval queue alongside every other request, and

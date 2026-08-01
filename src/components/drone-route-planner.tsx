@@ -75,7 +75,7 @@ export function DroneRoutePlanner({
   const overCap = plan ? plan.totalSeconds > ROUTE_DRIVE_CAP_SECONDS : false;
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white/80 p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
+    <div className="rounded-2xl border border-zinc-200 bg-white/95 p-4 shadow-lg backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">
