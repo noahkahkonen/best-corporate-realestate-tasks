@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import type { PhotoStatus } from "@prisma/client";
 import {
   archiveListing,
+  placeListing,
   requestDroneShot,
   setPhotoStatus,
   type ActionState,
@@ -112,6 +113,95 @@ export function RequestDroneShotForm({
       <p className="text-[0.7rem] text-zinc-500">
         Creates a task and sends it to your manager for approval.
       </p>
+      <Feedback state={state} />
+    </form>
+  );
+}
+
+const PLACE_PROPERTY_TYPES = [
+  "Land",
+  "Commercial",
+  "Office",
+  "Industrial",
+  "Multi-Family",
+  "Residential",
+];
+
+/**
+ * Names a hand-placed pin. The label is the differentiator between sibling
+ * parcels on the same road, so it's the one required field.
+ */
+export function PlacePinForm({
+  latitude,
+  longitude,
+  onDone,
+  onCancel,
+}: {
+  latitude: number;
+  longitude: number;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  const [state, action, pending] = useActionState(
+    async (prev: ActionState, fd: FormData) => {
+      const result = await placeListing(prev, fd);
+      if (result.ok) onDone();
+      return result;
+    },
+    empty,
+  );
+
+  return (
+    <form action={action} className="space-y-2">
+      <input type="hidden" name="latitude" value={latitude} />
+      <input type="hidden" name="longitude" value={longitude} />
+      <p className="text-xs text-zinc-500">
+        Pin set at {latitude.toFixed(5)}, {longitude.toFixed(5)}. Click the map
+        again to adjust it.
+      </p>
+      <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+        Label
+        <input
+          name="address"
+          required
+          placeholder="e.g. 0 Broad Street (3.4 AC)"
+          className={inputClass}
+        />
+      </label>
+      <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+        Nickname (optional)
+        <input
+          name="name"
+          placeholder="e.g. corner parcel by the substation"
+          className={inputClass}
+        />
+      </label>
+      <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+        Property type
+        <select name="propertyType" defaultValue="Land" className={inputClass}>
+          {PLACE_PROPERTY_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={pending}
+          className="flex-1 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-60"
+        >
+          {pending ? "Pinning…" : "Add to map"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-lg border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        >
+          Cancel
+        </button>
+      </div>
       <Feedback state={state} />
     </form>
   );

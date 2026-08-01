@@ -6,7 +6,11 @@ import type { PhotoStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 import { geocodeAddress } from "@/lib/geocode";
-import { canArchiveListing, canSetPhotoStatus } from "@/lib/drone-shots";
+import {
+  canArchiveListing,
+  canMovePin,
+  canSetPhotoStatus,
+} from "@/lib/drone-shots";
 import { notifyManagersOfRequest } from "@/lib/notifications";
 
 const paths = [
@@ -125,6 +129,79 @@ async function findNearby(place: ResolvedPlace) {
       longitude: { gte: place.longitude - delta, lte: place.longitude + delta },
     },
   });
+}
+
+/**
+ * Pin a parcel by clicking the map — for land with no numbered address, where
+ * search can't find it. The label is what tells sibling parcels apart, so it
+ * is required. Deliberately no nearby-duplicate check: placing two parcels on
+ * the same road is the whole point.
+ */
+export async function placeListing(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await requireRole([...ALL_ROLES]);
+
+  const address = str(formData.get("address"));
+  if (!address) {
+    return { error: "Give the parcel a label, e.g. “0 Broad Street (3.4 AC)”." };
+  }
+
+  const lat = Number(str(formData.get("latitude")));
+  const lng = Number(str(formData.get("longitude")));
+  if (
+    !Number.isFinite(lat) || lat < -90 || lat > 90 ||
+    !Number.isFinite(lng) || lng < -180 || lng > 180
+  ) {
+    return { error: "Click the map to choose a spot first." };
+  }
+
+  await prisma.listing.create({
+    data: {
+      address,
+      name: optional(formData.get("name")),
+      propertyType: optional(formData.get("propertyType")),
+      latitude: lat,
+      longitude: lng,
+      state: "OH",
+      createdById: session.user.id,
+    },
+  });
+
+  revalidateAll();
+  return { ok: `Pinned ${address}.` };
+}
+
+/** Admin/manager: move a mislocated pin to where the parcel actually is. */
+export async function moveListing(
+  listingId: string,
+  latitude: number,
+  longitude: number,
+): Promise<ActionState> {
+  const session = await requireRole([...ALL_ROLES]);
+  if (!canMovePin(session.user.role)) {
+    return { error: "Only admins and managers can move pins." };
+  }
+  if (
+    !Number.isFinite(latitude) || latitude < -90 || latitude > 90 ||
+    !Number.isFinite(longitude) || longitude < -180 || longitude > 180
+  ) {
+    return { error: "That point is not on the map." };
+  }
+
+  const listing = await prisma.listing.findUnique({ where: { id: listingId } });
+  if (!listing || listing.archived) {
+    return { error: "That listing is no longer on the map." };
+  }
+
+  await prisma.listing.update({
+    where: { id: listingId },
+    data: { latitude, longitude },
+  });
+
+  revalidateAll();
+  return { ok: "Pin moved." };
 }
 
 /**
