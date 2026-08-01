@@ -3,6 +3,7 @@ import { logout } from "@/server/logout";
 import { AgentNav } from "@/components/agent-nav";
 import { prisma } from "@/lib/prisma";
 import { helpThreadNeedsAgentReply } from "@/lib/help-thread";
+import { countLiveDroneShoots } from "@/lib/drone-shots-data";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +54,8 @@ export default async function AgentLayout({
       ])
     : [0, 0, 0, 0];
 
+  const droneCount = await countLiveDroneShoots();
+
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
@@ -85,6 +88,7 @@ export default async function AgentLayout({
         tasksCount={tasksCount}
         helpCount={helpCount}
         revisionsCount={revisionsCount}
+        droneCount={droneCount}
       />
       <div className="pt-8">{children}</div>
     </div>

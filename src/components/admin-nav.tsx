@@ -4,15 +4,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const tabs = [
-  { href: "/admin/tasks", label: "Tasks", showAgentBadge: true },
-  { href: "/admin/completed", label: "Completed", showAgentBadge: false },
+  { href: "/admin/tasks", label: "Tasks", badgeKey: "help" },
+  { href: "/admin/completed", label: "Completed", badgeKey: null },
+  { href: "/admin/drone-shots", label: "Drone Shots", badgeKey: "drone" },
 ] as const;
 
 type Props = {
   agentReplyUnread?: number;
+  droneCount?: number;
 };
 
-export function AdminNav({ agentReplyUnread = 0 }: Props) {
+export function AdminNav({ agentReplyUnread = 0, droneCount = 0 }: Props) {
   const pathname = usePathname();
 
   return (
@@ -20,11 +22,11 @@ export function AdminNav({ agentReplyUnread = 0 }: Props) {
       className="-mb-px flex flex-wrap gap-1 border-b border-zinc-200 dark:border-zinc-800"
       aria-label="Admin sections"
     >
-      {tabs.map(({ href, label, showAgentBadge }) => {
+      {tabs.map(({ href, label, badgeKey }) => {
         const active =
           pathname === href || (href === "/admin/tasks" && pathname === "/admin");
-        const badge =
-          showAgentBadge && agentReplyUnread > 0 ? agentReplyUnread : null;
+        const count = badgeKey === "help" ? agentReplyUnread : badgeKey === "drone" ? droneCount : 0;
+        const badge = badgeKey && count > 0 ? count : null;
         return (
           <Link
             key={href}
@@ -39,7 +41,11 @@ export function AdminNav({ agentReplyUnread = 0 }: Props) {
             {badge !== null ? (
               <span
                 className="min-w-[1.375rem] rounded-full bg-rose-600 px-1.5 py-0.5 text-center text-xs font-semibold text-white tabular-nums dark:bg-rose-500"
-                aria-label={`${badge} new agent repl${badge === 1 ? "y" : "ies"} in help threads`}
+                aria-label={
+                  badgeKey === "drone"
+                    ? `${badge} drone shoot${badge === 1 ? "" : "s"} outstanding`
+                    : `${badge} new agent repl${badge === 1 ? "y" : "ies"} in help threads`
+                }
               >
                 {badge}
               </span>

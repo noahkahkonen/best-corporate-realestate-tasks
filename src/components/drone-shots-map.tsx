@@ -1,0 +1,581 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import type { Role } from "@prisma/client";
+import type { ListingView } from "@/lib/drone-shots-data";
+import { listingHasLiveRequest } from "@/lib/drone-shots-data";
+import {
+  DEFAULT_MAP_CENTER,
+  DEFAULT_MAP_ZOOM,
+  PHOTO_STATUS_META,
+  PHOTO_STATUS_ORDER,
+  canArchiveListing,
+  canPlanRoutes,
+  canSeeAddedBy,
+  canSetPhotoStatus,
+  listingLabel,
+  listingLocality,
+} from "@/lib/drone-shots";
+import { loadGoogleMaps } from "@/lib/google-maps-loader";
+import {
+  ArchiveListingForm,
+  PhotoStatusForm,
+  RequestDroneShotForm,
+} from "@/components/drone-shots-forms";
+import { DroneRoutePlanner } from "@/components/drone-route-planner";
+
+export type SearchHit = {
+  address: string;
+  city: string | null;
+  state: string | null;
+  postalCode: string | null;
+  latitude: number;
+  longitude: number;
+};
+
+function formatDate(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function addressComponent(
+  components: google.maps.places.AddressComponent[] | null | undefined,
+  type: string,
+  short = false,
+): string | null {
+  const hit = components?.find((c) => c.types.includes(type));
+  if (!hit) return null;
+  return short ? hit.shortText : hit.longText;
+}
+
+export function DroneShotsMap({
+  listings,
+  role,
+  apiKey,
+  mapId,
+}: {
+  listings: ListingView[];
+  role: Role;
+  apiKey: string | null;
+  mapId: string;
+}) {
+  const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [mapError, setMapError] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [searchHit, setSearchHit] = useState<SearchHit | null>(null);
+  const [filter, setFilter] = useState<"ALL" | (typeof PHOTO_STATUS_ORDER)[number]>(
+    "ALL",
+  );
+
+  const mapNode = useRef<HTMLDivElement | null>(null);
+  const searchNode = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const markersRef = useRef(
+    new Map<string, google.maps.marker.AdvancedMarkerElement>(),
+  );
+  const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
+  const searchMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(
+    null,
+  );
+  const didFitRef = useRef(false);
+
+  // The InfoWindow gets a plain container that React portals its content into,
+  // so the popup can host real forms and server actions.
+  const [popupHost] = useState(() =>
+    typeof document === "undefined" ? null : document.createElement("div"),
+  );
+
+  const visible = useMemo(
+    () => (filter === "ALL" ? listings : listings.filter((l) => l.photoStatus === filter)),
+    [listings, filter],
+  );
+
+  const selected = useMemo(
+    () => listings.find((l) => l.id === selectedId) ?? null,
+    [listings, selectedId],
+  );
+
+  const counts = useMemo(() => {
+    const base = { NO_PHOTOS: 0, NEEDS_MORE: 0, HAS_PHOTOS: 0 };
+    for (const l of listings) base[l.photoStatus] += 1;
+    return base;
+  }, [listings]);
+
+  const closePopup = useCallback(() => {
+    infoWindowRef.current?.close();
+    setSelectedId(null);
+  }, []);
+
+  /* ---------------------------------------------------------------- boot */
+
+  useEffect(() => {
+    if (!apiKey || !mapNode.current || mapRef.current) return;
+    let cancelled = false;
+
+    loadGoogleMaps(apiKey)
+      .then((maps) => {
+        if (cancelled || !mapNode.current) return;
+        const instance = new maps.Map(mapNode.current, {
+          center: DEFAULT_MAP_CENTER,
+          zoom: DEFAULT_MAP_ZOOM,
+          mapId,
+          mapTypeId: "hybrid",
+          streetViewControl: false,
+          mapTypeControl: true,
+          fullscreenControl: true,
+        });
+        infoWindowRef.current = new maps.InfoWindow({ maxWidth: 340 });
+        infoWindowRef.current.addListener("closeclick", () => setSelectedId(null));
+        mapRef.current = instance;
+        setMap(instance);
+      })
+      .catch((err: Error) => {
+        if (!cancelled) setMapError(err.message);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [apiKey, mapId]);
+
+  /* ------------------------------------------------------ places search */
+
+  useEffect(() => {
+    if (!map || !searchNode.current || searchNode.current.childElementCount > 0) {
+      return;
+    }
+
+    const { PlaceAutocompleteElement } = google.maps.places;
+    const element = new PlaceAutocompleteElement();
+    element.style.width = "100%";
+    searchNode.current.appendChild(element);
+
+    const onSelect = async (event: Event) => {
+      const { placePrediction } = event as google.maps.places.PlacePredictionSelectEvent;
+      const place = placePrediction.toPlace();
+      await place.fetchFields({
+        fields: ["formattedAddress", "location", "addressComponents", "displayName"],
+      });
+
+      const location = place.location;
+      if (!location) return;
+
+      const components = place.addressComponents;
+      const streetNumber = addressComponent(components, "street_number");
+      const route = addressComponent(components, "route");
+      const street = [streetNumber, route].filter(Boolean).join(" ");
+
+      const hit: SearchHit = {
+        address: street || place.formattedAddress || place.displayName || "",
+        city:
+          addressComponent(components, "locality") ??
+          addressComponent(components, "sublocality"),
+        state: addressComponent(components, "administrative_area_level_1", true),
+        postalCode: addressComponent(components, "postal_code"),
+        latitude: location.lat(),
+        longitude: location.lng(),
+      };
+
+      setSearchHit(hit);
+      setSelectedId(null);
+      infoWindowRef.current?.close();
+
+      map.panTo({ lat: hit.latitude, lng: hit.longitude });
+      map.setZoom(17);
+    };
+
+    element.addEventListener("gmp-select", onSelect as EventListener);
+    return () => element.removeEventListener("gmp-select", onSelect as EventListener);
+  }, [map]);
+
+  // A distinct pin marks the searched address until it becomes a listing.
+  useEffect(() => {
+    if (!map) return;
+
+    if (searchMarkerRef.current) {
+      searchMarkerRef.current.map = null;
+      searchMarkerRef.current = null;
+    }
+    if (!searchHit) return;
+
+    const { AdvancedMarkerElement, PinElement } = google.maps.marker;
+    const pin = new PinElement({
+      background: "#4f46e5",
+      borderColor: "#312e81",
+      glyphColor: "#ffffff",
+      scale: 1.2,
+    });
+    searchMarkerRef.current = new AdvancedMarkerElement({
+      map,
+      position: { lat: searchHit.latitude, lng: searchHit.longitude },
+      content: pin.element,
+      title: searchHit.address,
+      zIndex: 20,
+    });
+  }, [map, searchHit]);
+
+  /* ------------------------------------------------------------- pins */
+
+  useEffect(() => {
+    if (!map) return;
+
+    const { AdvancedMarkerElement, PinElement } = google.maps.marker;
+    const markers = markersRef.current;
+    const wanted = new Set(visible.map((l) => l.id));
+
+    for (const [id, marker] of markers) {
+      if (!wanted.has(id)) {
+        marker.map = null;
+        markers.delete(id);
+      }
+    }
+
+    for (const listing of visible) {
+      const meta = PHOTO_STATUS_META[listing.photoStatus];
+      const isSelected = listing.id === selectedId;
+      const pin = new PinElement({
+        background: meta.pin,
+        borderColor: isSelected ? "#111827" : meta.pin,
+        glyphColor: meta.glyph,
+        scale: isSelected ? 1.3 : 1,
+      });
+
+      const existing = markers.get(listing.id);
+      if (existing) {
+        existing.content = pin.element;
+        existing.position = { lat: listing.latitude, lng: listing.longitude };
+        existing.zIndex = isSelected ? 15 : 1;
+        continue;
+      }
+
+      const marker = new AdvancedMarkerElement({
+        map,
+        position: { lat: listing.latitude, lng: listing.longitude },
+        title: listingLabel(listing),
+        content: pin.element,
+      });
+      marker.addListener("click", () => {
+        setSearchHit(null);
+        setSelectedId(listing.id);
+      });
+      markers.set(listing.id, marker);
+    }
+
+    if (!didFitRef.current && visible.length > 0) {
+      didFitRef.current = true;
+      if (visible.length === 1) {
+        map.setCenter({ lat: visible[0].latitude, lng: visible[0].longitude });
+        map.setZoom(15);
+      } else {
+        const bounds = new google.maps.LatLngBounds();
+        for (const l of visible) bounds.extend({ lat: l.latitude, lng: l.longitude });
+        map.fitBounds(bounds, 64);
+      }
+    }
+  }, [map, visible, selectedId]);
+
+  // Anchor the popup to whichever pin is selected.
+  useEffect(() => {
+    const info = infoWindowRef.current;
+    if (!info || !map || !popupHost) return;
+
+    if (!selected) {
+      info.close();
+      return;
+    }
+    const marker = markersRef.current.get(selected.id);
+    if (!marker) return;
+
+    info.setContent(popupHost);
+    info.open({ map, anchor: marker });
+  }, [map, selected, popupHost]);
+
+  const focus = useCallback(
+    (listing: ListingView) => {
+      setSearchHit(null);
+      setSelectedId(listing.id);
+      if (!map) return;
+      map.panTo({ lat: listing.latitude, lng: listing.longitude });
+      if ((map.getZoom() ?? 0) < 15) map.setZoom(15);
+    },
+    [map],
+  );
+
+  const filters = [
+    { key: "ALL" as const, label: "All", count: listings.length },
+    ...PHOTO_STATUS_ORDER.map((s) => ({
+      key: s,
+      label: PHOTO_STATUS_META[s].short,
+      count: counts[s],
+    })),
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-zinc-200 bg-white/80 p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
+        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          Search an address
+          <div
+            ref={searchNode}
+            className="mt-1 [&_gmp-place-autocomplete]:w-full"
+          />
+        </label>
+        <p className="mt-1.5 text-xs text-zinc-500">
+          Find any address in Google — you can request a drone photo for it even
+          if it isn&apos;t pinned yet.
+        </p>
+
+        {searchHit ? (
+          <div className="mt-3 rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 dark:border-indigo-900 dark:bg-indigo-950/40">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-zinc-900 dark:text-white">
+                  {searchHit.address}
+                </p>
+                <p className="truncate text-xs text-zinc-500">
+                  {listingLocality(searchHit) || "—"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSearchHit(null)}
+                className="shrink-0 text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
+              >
+                Clear
+              </button>
+            </div>
+            <div className="mt-3">
+              <RequestDroneShotForm
+                target={{ kind: "address", ...searchHit }}
+                onDone={() => setSearchHit(null)}
+              />
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {filters.map((f) => (
+          <button
+            key={f.key}
+            type="button"
+            onClick={() => setFilter(f.key)}
+            className={
+              filter === f.key
+                ? "inline-flex items-center gap-2 rounded-full bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white dark:bg-white dark:text-zinc-900"
+                : "inline-flex items-center gap-2 rounded-full border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            }
+          >
+            {f.key !== "ALL" ? (
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{ background: PHOTO_STATUS_META[f.key].pin }}
+              />
+            ) : null}
+            {f.label}
+            <span className="tabular-nums opacity-70">{f.count}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1.7fr_1fr]">
+        <div className="overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800">
+          {!apiKey ? (
+            <MapSetupNotice />
+          ) : mapError ? (
+            <div className="flex h-[34rem] items-center justify-center p-8 text-center">
+              <p className="text-sm text-rose-600 dark:text-rose-400">{mapError}</p>
+            </div>
+          ) : (
+            <div
+              ref={mapNode}
+              className="h-[34rem] w-full bg-zinc-100 dark:bg-zinc-900"
+            />
+          )}
+        </div>
+
+        <div className="space-y-4">
+          {canPlanRoutes(role) ? (
+            <DroneRoutePlanner listings={listings} map={map} onFocus={focus} />
+          ) : null}
+
+          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800">
+            <p className="border-b border-zinc-100 px-4 py-3 text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:border-zinc-800">
+              {visible.length} listing{visible.length === 1 ? "" : "s"}
+            </p>
+            {visible.length === 0 ? (
+              <p className="px-4 py-6 text-sm text-zinc-500">
+                {listings.length === 0
+                  ? "No listings pinned yet. Search an address above, or add one."
+                  : "Nothing matches this filter."}
+              </p>
+            ) : (
+              <ul className="max-h-[24rem] divide-y divide-zinc-100 overflow-y-auto dark:divide-zinc-800">
+                {visible.map((l) => (
+                  <li key={l.id}>
+                    <button
+                      type="button"
+                      onClick={() => focus(l)}
+                      className={
+                        l.id === selectedId
+                          ? "flex w-full items-start gap-3 bg-zinc-50 px-4 py-3 text-left dark:bg-zinc-900"
+                          : "flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-900"
+                      }
+                    >
+                      <span
+                        className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ background: PHOTO_STATUS_META[l.photoStatus].pin }}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium text-zinc-900 dark:text-white">
+                          {listingLabel(l)}
+                        </span>
+                        <span className="block truncate text-xs text-zinc-500">
+                          {l.name ? `${l.address} · ` : ""}
+                          {listingLocality(l) || "—"}
+                        </span>
+                      </span>
+                      {listingHasLiveRequest(l) ? (
+                        <span className="shrink-0 rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800 dark:bg-sky-950 dark:text-sky-200">
+                          Requested
+                        </span>
+                      ) : null}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {popupHost && selected
+        ? createPortal(
+            <ListingPopup listing={selected} role={role} onClose={closePopup} />,
+            popupHost,
+          )
+        : null}
+    </div>
+  );
+}
+
+function MapSetupNotice() {
+  return (
+    <div className="flex h-[34rem] flex-col items-center justify-center gap-2 p-8 text-center">
+      <p className="text-sm font-medium text-zinc-900 dark:text-white">
+        The map needs a Google Maps API key
+      </p>
+      <p className="max-w-sm text-sm text-zinc-600 dark:text-zinc-400">
+        Set{" "}
+        <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">
+          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+        </code>{" "}
+        for the map and search, and{" "}
+        <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">
+          GOOGLE_MAPS_API_KEY
+        </code>{" "}
+        for server-side geocoding.
+      </p>
+    </div>
+  );
+}
+
+/** The pin popup: address first, then status, history, and actions. */
+function ListingPopup({
+  listing,
+  role,
+  onClose,
+}: {
+  listing: ListingView;
+  role: Role;
+  onClose: () => void;
+}) {
+  const meta = PHOTO_STATUS_META[listing.photoStatus];
+  const live = listing.droneTasks.find(
+    (t) => t.reviewStatus !== "DENIED" && t.executionStatus !== "DONE",
+  );
+
+  return (
+    <div className="w-[19rem] space-y-3 p-1 text-zinc-900">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold">{listing.address}</p>
+          <p className="text-xs text-zinc-500">
+            {listingLocality(listing) || "—"}
+          </p>
+          {listing.name ? (
+            <p className="text-xs text-zinc-500">{listing.name}</p>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="shrink-0 text-xs text-zinc-500 hover:text-zinc-900"
+        >
+          Close
+        </button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <span
+          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${meta.badge}`}
+        >
+          {meta.label}
+        </span>
+        {listing.propertyType ? (
+          <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600">
+            {listing.propertyType}
+          </span>
+        ) : null}
+      </div>
+
+      {listing.lastShotAt ? (
+        <p className="text-xs text-zinc-500">
+          Last flown {formatDate(listing.lastShotAt)}
+        </p>
+      ) : null}
+      {listing.photoNote ? (
+        <p className="rounded-lg bg-zinc-50 px-2.5 py-2 text-xs text-zinc-600">
+          {listing.photoNote}
+        </p>
+      ) : null}
+
+      {canSeeAddedBy(role) ? (
+        <p className="text-xs text-zinc-500">
+          Added by {listing.addedByName ?? "someone"} on{" "}
+          {formatDate(listing.addedAt)}
+        </p>
+      ) : null}
+
+      <div className="space-y-3 border-t border-zinc-100 pt-3">
+        {canSetPhotoStatus(role) ? (
+          <PhotoStatusForm
+            listingId={listing.id}
+            current={listing.photoStatus}
+            note={listing.photoNote}
+          />
+        ) : null}
+
+        <RequestDroneShotForm
+          target={{ kind: "listing", listingId: listing.id }}
+          blockedReason={
+            live
+              ? `Drone shoot already requested by ${live.requestedByName ?? "a teammate"} on ${formatDate(live.createdAt)} — ${live.reviewStatus === "PENDING_REVIEW" ? "waiting on manager approval" : "approved and in the queue"}.`
+              : null
+          }
+        />
+
+        {canArchiveListing(role) ? (
+          <div className="border-t border-zinc-100 pt-2">
+            <ArchiveListingForm listingId={listing.id} />
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}

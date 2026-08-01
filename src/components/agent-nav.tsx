@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 type Tab = {
   href: string;
   label: string;
-  countKey: "pending" | "tasks" | "help" | "revisions" | null;
+  countKey: "pending" | "tasks" | "help" | "revisions" | "drone" | null;
 };
 
 const tabs: Tab[] = [
@@ -15,6 +15,7 @@ const tabs: Tab[] = [
   { href: "/agent/completed", label: "Completed", countKey: null },
   { href: "/agent/help", label: "Help", countKey: "help" },
   { href: "/agent/revisions", label: "Revisions", countKey: "revisions" },
+  { href: "/agent/drone-shots", label: "Drone Shots", countKey: "drone" },
 ];
 
 type Props = {
@@ -22,6 +23,7 @@ type Props = {
   tasksCount: number;
   helpCount: number;
   revisionsCount: number;
+  droneCount: number;
 };
 
 export function AgentNav({
@@ -29,6 +31,7 @@ export function AgentNav({
   tasksCount,
   helpCount,
   revisionsCount,
+  droneCount,
 }: Props) {
   const pathname = usePathname();
 
@@ -37,6 +40,7 @@ export function AgentNav({
     if (key === "tasks") return tasksCount;
     if (key === "help") return helpCount;
     if (key === "revisions") return revisionsCount;
+    if (key === "drone") return droneCount;
     return null;
   };
 
@@ -57,7 +61,9 @@ export function AgentNav({
               ? `${count} current task${count === 1 ? "" : "s"}`
               : countKey === "help"
                 ? `${count} help request${count === 1 ? "" : "s"} awaiting your reply`
-                : `${count} revision${count === 1 ? "" : "s"}`;
+                : countKey === "drone"
+                  ? `${count} drone shoot${count === 1 ? "" : "s"} outstanding`
+                  : `${count} revision${count === 1 ? "" : "s"}`;
 
         return (
           <Link

@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 type Tab = {
   href: string;
   label: string;
-  countKey: "requests" | "support" | null;
+  countKey: "requests" | "support" | "drone" | null;
 };
 
 const tabs: Tab[] = [
@@ -14,15 +14,18 @@ const tabs: Tab[] = [
   { href: "/manager/completed", label: "Completed", countKey: null },
   { href: "/manager/requests", label: "Task requests", countKey: "requests" },
   { href: "/manager/support", label: "Admin support", countKey: "support" },
+  { href: "/manager/drone-shots", label: "Drone Shots", countKey: "drone" },
   { href: "/manager/accounts", label: "Accounts", countKey: null },
 ];
 
 export function ManagerNav({
   taskRequestCount,
   supportCount,
+  droneCount,
 }: {
   taskRequestCount: number;
   supportCount: number;
+  droneCount: number;
 }) {
   const pathname = usePathname();
 
@@ -40,13 +43,17 @@ export function ManagerNav({
             ? taskRequestCount
             : countKey === "support"
               ? supportCount
-              : null;
+              : countKey === "drone"
+                ? droneCount
+                : null;
         const aria =
           countKey === "requests"
             ? `${count} pending task request${count === 1 ? "" : "s"}`
             : countKey === "support"
               ? `${count} admin help request${count === 1 ? "" : "s"}`
-              : "";
+              : countKey === "drone"
+                ? `${count} drone shoot${count === 1 ? "" : "s"} outstanding`
+                : "";
 
         return (
           <Link

@@ -2,6 +2,7 @@ import { logout } from "@/server/logout";
 import { ManagerNav } from "@/components/manager-nav";
 import { ManagerNewTaskToolbar } from "@/components/manager-new-task-toolbar";
 import { prisma } from "@/lib/prisma";
+import { countLiveDroneShoots } from "@/lib/drone-shots-data";
 
 export const dynamic = "force-dynamic";
 
@@ -10,29 +11,31 @@ export default async function ManagerLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [taskRequestCount, supportCount, admins, projects] = await Promise.all([
-    prisma.task.count({
-      where: {
-        reviewStatus: "PENDING_REVIEW",
-        creator: { role: "AGENT" },
-      },
-    }),
-    prisma.task.count({
-      where: {
-        reviewStatus: "APPROVED",
-        executionStatus: "NEEDS_HELP",
-      },
-    }),
-    prisma.user.findMany({
-      where: { role: "ADMIN" },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-    prisma.project.findMany({
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-  ]);
+  const [taskRequestCount, supportCount, droneCount, admins, projects] =
+    await Promise.all([
+      prisma.task.count({
+        where: {
+          reviewStatus: "PENDING_REVIEW",
+          creator: { role: "AGENT" },
+        },
+      }),
+      prisma.task.count({
+        where: {
+          reviewStatus: "APPROVED",
+          executionStatus: "NEEDS_HELP",
+        },
+      }),
+      countLiveDroneShoots(),
+      prisma.user.findMany({
+        where: { role: "ADMIN" },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      }),
+      prisma.project.findMany({
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      }),
+    ]);
 
   const adminOptions = admins.map((a) => ({ id: a.id, name: a.name }));
   const projectOptions = projects.map((p) => ({ id: p.id, name: p.name }));
@@ -64,7 +67,11 @@ export default async function ManagerLayout({
         </div>
       </header>
       <ManagerNewTaskToolbar admins={adminOptions} projects={projectOptions} />
-      <ManagerNav taskRequestCount={taskRequestCount} supportCount={supportCount} />
+      <ManagerNav
+        taskRequestCount={taskRequestCount}
+        supportCount={supportCount}
+        droneCount={droneCount}
+      />
       <div className="pt-8">{children}</div>
     </div>
   );

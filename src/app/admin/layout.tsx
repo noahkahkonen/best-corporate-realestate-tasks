@@ -3,6 +3,7 @@ import { logout } from "@/server/logout";
 import { AdminNav } from "@/components/admin-nav";
 import { prisma } from "@/lib/prisma";
 import { helpThreadHasUnreadAgentReplyForAdmin } from "@/lib/help-thread";
+import { countLiveDroneShoots } from "@/lib/drone-shots-data";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,8 @@ export default async function AdminLayout({
     ).length;
   }
 
+  const droneCount = await countLiveDroneShoots();
+
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
@@ -67,7 +70,7 @@ export default async function AdminLayout({
           </form>
         </div>
       </header>
-      <AdminNav agentReplyUnread={agentReplyUnread} />
+      <AdminNav agentReplyUnread={agentReplyUnread} droneCount={droneCount} />
       <div className="pt-8">{children}</div>
     </div>
   );
