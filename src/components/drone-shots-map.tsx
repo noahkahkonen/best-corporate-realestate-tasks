@@ -12,6 +12,7 @@ import {
   SEARCH_BIAS_RADIUS_M,
   PHOTO_STATUS_META,
   PHOTO_STATUS_ORDER,
+  REQUESTED_PIN_ACCENT,
   canArchiveListing,
   canMovePin,
   canPlanRoutes,
@@ -26,6 +27,7 @@ import {
   ArchiveListingForm,
   PhotoStatusForm,
   PlacePinForm,
+  RailStatusDots,
   RequestDroneShotForm,
 } from "@/components/drone-shots-forms";
 import { DroneRoutePlanner } from "@/components/drone-route-planner";
@@ -73,9 +75,9 @@ export function DroneShotsMap({
   const [mapError, setMapError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [searchHit, setSearchHit] = useState<SearchHit | null>(null);
-  const [filter, setFilter] = useState<"ALL" | (typeof PHOTO_STATUS_ORDER)[number]>(
-    "ALL",
-  );
+  const [filter, setFilter] = useState<
+    "ALL" | "REQUESTED" | (typeof PHOTO_STATUS_ORDER)[number]
+  >("ALL");
   // Click-to-place: "new" drops a fresh pin, "move" relocates an existing one.
   const [placing, setPlacing] = useState<
     null | { mode: "new" } | { mode: "move"; listing: ListingView }
@@ -111,10 +113,23 @@ export function DroneShotsMap({
     typeof document === "undefined" ? null : document.createElement("div"),
   );
 
-  const visible = useMemo(
-    () => (filter === "ALL" ? listings : listings.filter((l) => l.photoStatus === filter)),
-    [listings, filter],
-  );
+  // Managers and admins triage requests, so open shoots jump out for them.
+  const highlightRequests = canSetPhotoStatus(role);
+
+  const visible = useMemo(() => {
+    const matched =
+      filter === "ALL"
+        ? listings
+        : filter === "REQUESTED"
+          ? listings.filter(listingHasLiveRequest)
+          : listings.filter((l) => l.photoStatus === filter);
+    if (!highlightRequests) return matched;
+    // Requested listings first in the rail; stable within each group.
+    return [...matched].sort(
+      (a, b) =>
+        Number(listingHasLiveRequest(b)) - Number(listingHasLiveRequest(a)),
+    );
+  }, [listings, filter, highlightRequests]);
 
   const selected = useMemo(
     () => listings.find((l) => l.id === selectedId) ?? null,
@@ -122,8 +137,11 @@ export function DroneShotsMap({
   );
 
   const counts = useMemo(() => {
-    const base = { NO_PHOTOS: 0, NEEDS_MORE: 0, HAS_PHOTOS: 0 };
-    for (const l of listings) base[l.photoStatus] += 1;
+    const base = { NO_PHOTOS: 0, NEEDS_MORE: 0, HAS_PHOTOS: 0, REQUESTED: 0 };
+    for (const l of listings) {
+      base[l.photoStatus] += 1;
+      if (listingHasLiveRequest(l)) base.REQUESTED += 1;
+    }
     return base;
   }, [listings]);
 
@@ -342,18 +360,23 @@ export function DroneShotsMap({
     for (const listing of visible) {
       const meta = PHOTO_STATUS_META[listing.photoStatus];
       const isSelected = listing.id === selectedId;
+      const isRequested = highlightRequests && listingHasLiveRequest(listing);
       const pin = new PinElement({
         background: meta.pin,
-        borderColor: isSelected ? "#111827" : meta.pin,
-        glyphColor: meta.glyph,
-        scale: isSelected ? 1.3 : 1,
+        borderColor: isSelected
+          ? "#111827"
+          : isRequested
+            ? REQUESTED_PIN_ACCENT
+            : meta.pin,
+        glyphColor: isRequested && !isSelected ? REQUESTED_PIN_ACCENT : meta.glyph,
+        scale: isSelected ? 1.3 : isRequested ? 1.15 : 1,
       });
 
       const existing = markers.get(listing.id);
       if (existing) {
         existing.content = pin.element;
         existing.position = { lat: listing.latitude, lng: listing.longitude };
-        existing.zIndex = isSelected ? 15 : 1;
+        existing.zIndex = isSelected ? 15 : isRequested ? 5 : 1;
         continue;
       }
 
@@ -382,7 +405,7 @@ export function DroneShotsMap({
         map.fitBounds(bounds, 64);
       }
     }
-  }, [map, visible, selectedId]);
+  }, [map, visible, selectedId, highlightRequests]);
 
   // Anchor the popup to whichever pin is selected.
   useEffect(() => {
@@ -412,11 +435,15 @@ export function DroneShotsMap({
   );
 
   const filters = [
-    { key: "ALL" as const, label: "All", count: listings.length },
+    { key: "ALL" as const, label: "All", count: listings.length, dot: null as string | null },
+    ...(highlightRequests
+      ? [{ key: "REQUESTED" as const, label: "Requested", count: counts.REQUESTED, dot: REQUESTED_PIN_ACCENT }]
+      : []),
     ...PHOTO_STATUS_ORDER.map((s) => ({
       key: s,
       label: PHOTO_STATUS_META[s].short,
       count: counts[s],
+      dot: PHOTO_STATUS_META[s].pin as string | null,
     })),
   ];
 
@@ -426,17 +453,17 @@ export function DroneShotsMap({
     // on small screens.
     <div className="relative left-1/2 w-screen -translate-x-1/2">
       <div className="relative">
-        <div className="px-4 pb-3 sm:px-6 lg:absolute lg:top-4 lg:left-4 lg:z-10 lg:w-96 lg:p-0">
-          <div className="rounded-2xl border border-zinc-200 bg-white/95 p-4 shadow-lg backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95">
-        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          Search an address
+        <div className="px-4 pb-3 sm:px-6 lg:absolute lg:top-3 lg:left-3 lg:z-10 lg:w-80 lg:p-0">
+          <div className="rounded-xl border border-zinc-200 bg-white/95 p-3 shadow-lg backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95">
+        <label className="block">
+          <span className="sr-only">Search an address</span>
           <div
             ref={searchNode}
-            className="mt-1 [&_gmp-place-autocomplete]:w-full"
+            className="[&_gmp-place-autocomplete]:w-full"
           />
         </label>
-        <p className="mt-1.5 text-xs text-zinc-500">
-          {`Results near ${HOME_BASE.label} come up first. You can request a drone photo for any address, even one that isn't pinned yet.`}
+        <p className="mt-1 text-[0.7rem] text-zinc-500">
+          {`Search any address to request a drone photo — ${HOME_BASE.label} area first.`}
         </p>
 
         {searchHit ? (
@@ -467,7 +494,7 @@ export function DroneShotsMap({
           </div>
         ) : null}
 
-        <div className="mt-3 border-t border-zinc-100 pt-3 dark:border-zinc-800">
+        <div className="mt-2 border-t border-zinc-100 pt-2 dark:border-zinc-800">
           {placing?.mode === "move" ? (
             <div className="space-y-2">
               <p className="text-xs font-medium text-violet-700 dark:text-violet-300">
@@ -561,10 +588,10 @@ export function DroneShotsMap({
                     : "inline-flex items-center gap-2 rounded-full border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                 }
               >
-                {f.key !== "ALL" ? (
+                {f.dot ? (
                   <span
                     className="h-2 w-2 rounded-full"
-                    style={{ background: PHOTO_STATUS_META[f.key].pin }}
+                    style={{ background: f.dot }}
                   />
                 ) : null}
                 {f.label}
@@ -591,38 +618,57 @@ export function DroneShotsMap({
               </p>
             ) : (
               <ul className="max-h-[24rem] divide-y divide-zinc-100 overflow-y-auto lg:max-h-none dark:divide-zinc-800">
-                {visible.map((l) => (
-                  <li key={l.id}>
-                    <button
-                      type="button"
-                      onClick={() => focus(l)}
+                {visible.map((l) => {
+                  const requested = listingHasLiveRequest(l);
+                  return (
+                    <li
+                      key={l.id}
                       className={
-                        l.id === selectedId
-                          ? "flex w-full items-start gap-3 bg-zinc-50 px-4 py-3 text-left dark:bg-zinc-900"
-                          : "flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-900"
+                        highlightRequests && requested
+                          ? "border-l-2 border-l-sky-500 bg-sky-50/60 dark:bg-sky-950/30"
+                          : ""
                       }
                     >
-                      <span
-                        className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
-                        style={{ background: PHOTO_STATUS_META[l.photoStatus].pin }}
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium text-zinc-900 dark:text-white">
-                          {listingLabel(l)}
+                      <div
+                        className={
+                          l.id === selectedId
+                            ? "flex items-start gap-2 bg-zinc-50 px-4 py-3 dark:bg-zinc-900"
+                            : "flex items-start gap-2 px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-900"
+                        }
+                      >
+                        <button
+                          type="button"
+                          onClick={() => focus(l)}
+                          className="flex min-w-0 flex-1 items-start gap-3 text-left"
+                        >
+                          <span
+                            className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
+                            style={{ background: PHOTO_STATUS_META[l.photoStatus].pin }}
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-medium text-zinc-900 dark:text-white">
+                              {listingLabel(l)}
+                            </span>
+                            <span className="block truncate text-xs text-zinc-500">
+                              {l.name ? `${l.address} · ` : ""}
+                              {listingLocality(l) || "—"}
+                            </span>
+                          </span>
+                        </button>
+                        <span className="flex shrink-0 flex-col items-end gap-1.5">
+                          {requested ? (
+                            <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800 dark:bg-sky-950 dark:text-sky-200">
+                              Requested
+                            </span>
+                          ) : null}
+                          {canSetPhotoStatus(role) ? (
+                            <RailStatusDots listingId={l.id} current={l.photoStatus} />
+                          ) : null}
                         </span>
-                        <span className="block truncate text-xs text-zinc-500">
-                          {l.name ? `${l.address} · ` : ""}
-                          {listingLocality(l) || "—"}
-                        </span>
-                      </span>
-                      {listingHasLiveRequest(l) ? (
-                        <span className="shrink-0 rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800 dark:bg-sky-950 dark:text-sky-200">
-                          Requested
-                        </span>
-                      ) : null}
-                    </button>
-                  </li>
-                ))}
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>

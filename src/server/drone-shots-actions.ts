@@ -294,7 +294,11 @@ export async function setPhotoStatus(
     where: { id: listingId },
     data: {
       photoStatus: status,
-      photoNote: optional(formData.get("photoNote")),
+      // The quick-set dots in the listing rail post no note field; only the
+      // popup form does. Touch the note only when it was actually submitted.
+      ...(formData.has("photoNote")
+        ? { photoNote: optional(formData.get("photoNote")) }
+        : {}),
       // Stamp the flight date the moment a listing first counts as shot.
       lastShotAt: status === "HAS_PHOTOS" ? new Date() : undefined,
     },

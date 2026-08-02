@@ -262,6 +262,43 @@ export function PhotoStatusForm({
   );
 }
 
+/**
+ * One-click photo status from the listing rail: three dots, grey/amber/green.
+ * Skips the note field so a quick set never clobbers an existing note.
+ */
+export function RailStatusDots({
+  listingId,
+  current,
+}: {
+  listingId: string;
+  current: PhotoStatus;
+}) {
+  const [, action, pending] = useActionState(setPhotoStatus, empty);
+
+  return (
+    <form action={action} className="flex items-center gap-1">
+      <input type="hidden" name="listingId" value={listingId} />
+      {PHOTO_STATUS_ORDER.map((status) => (
+        <button
+          key={status}
+          type="submit"
+          name="photoStatus"
+          value={status}
+          disabled={pending || status === current}
+          title={PHOTO_STATUS_META[status].label}
+          aria-label={`Mark as ${PHOTO_STATUS_META[status].label.toLowerCase()}`}
+          className={
+            status === current
+              ? "h-4 w-4 rounded-full ring-2 ring-zinc-400 ring-offset-1 dark:ring-zinc-500 dark:ring-offset-zinc-950"
+              : "h-4 w-4 rounded-full opacity-35 transition hover:scale-110 hover:opacity-100 disabled:opacity-20"
+          }
+          style={{ background: PHOTO_STATUS_META[status].pin }}
+        />
+      ))}
+    </form>
+  );
+}
+
 /** Manager-only cleanup for listings entered by mistake. */
 export function ArchiveListingForm({ listingId }: { listingId: string }) {
   const [state, action, pending] = useActionState(archiveListing, empty);
