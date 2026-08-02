@@ -145,7 +145,7 @@ export function DroneShotsMap({
           center: DEFAULT_MAP_CENTER,
           zoom: DEFAULT_MAP_ZOOM,
           mapId,
-          mapTypeId: "hybrid",
+          mapTypeId: "roadmap",
           streetViewControl: false,
           mapTypeControl: true,
           fullscreenControl: true,
