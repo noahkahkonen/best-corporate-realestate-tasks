@@ -21,8 +21,8 @@ export type PlanInput = {
   origin: google.maps.LatLngLiteral;
   /** Listings eligible for the run — normally everything without photos. */
   candidates: ListingView[];
-  /** Listing that must appear in the route even if it is far out. */
-  pinnedId?: string | null;
+  /** Listings that must appear in the route even if they are far out. */
+  pinnedIds?: string[];
   capSeconds?: number;
 };
 
@@ -72,21 +72,20 @@ function totalDuration(result: google.maps.DirectionsResult): {
  * Google optimises the order of a fixed set of waypoints but will not tell you
  * which ones to leave behind, so the selection is ours: start from the nearest
  * listings, ask for an optimised route, and keep dropping the stop that costs
- * the most driving until the total fits. A pinned listing is never dropped.
+ * the most driving until the total fits. Pinned listings are never dropped.
  */
 export async function planRoute({
   origin,
   candidates,
-  pinnedId,
+  pinnedIds = [],
   capSeconds = ROUTE_DRIVE_CAP_SECONDS,
 }: PlanInput): Promise<RoutePlan> {
   if (candidates.length === 0) {
     throw new Error("No listings need drone photos right now.");
   }
 
-  const pinned = pinnedId
-    ? (candidates.find((l) => l.id === pinnedId) ?? null)
-    : null;
+  const pinnedSet = new Set(pinnedIds);
+  const pinned = candidates.filter((l) => pinnedSet.has(l.id));
 
   const byDistance = [...candidates].sort(
     (a, b) =>
@@ -94,11 +93,11 @@ export async function planRoute({
       metersBetween(origin, { lat: b.latitude, lng: b.longitude }),
   );
 
-  // Seed with the nearest listings, keeping the pinned one regardless of range.
-  let selected = byDistance.slice(0, MAX_ROUTE_STOPS);
-  if (pinned && !selected.some((l) => l.id === pinned.id)) {
-    selected = [pinned, ...selected.slice(0, MAX_ROUTE_STOPS - 1)];
-  }
+  // Seed with every must-include stop, then the nearest of the rest.
+  let selected = [
+    ...pinned,
+    ...byDistance.filter((l) => !pinnedSet.has(l.id)),
+  ].slice(0, Math.max(MAX_ROUTE_STOPS, pinned.length));
 
   const dropped: ListingView[] = byDistance.filter(
     (l) => !selected.some((s) => s.id === l.id),
@@ -108,7 +107,7 @@ export async function planRoute({
   let result = await requestRoute(service, origin, selected);
   let { seconds, meters } = totalDuration(result);
 
-  while (seconds > capSeconds && selected.length > (pinned ? 1 : 0)) {
+  while (seconds > capSeconds && selected.length > pinned.length) {
     const order = result.routes[0]?.waypoint_order ?? selected.map((_, i) => i);
     const legs = result.routes[0]?.legs ?? [];
 
@@ -118,7 +117,7 @@ export async function planRoute({
     let worstCost = -1;
     order.forEach((waypointIndex, position) => {
       const listing = selected[waypointIndex];
-      if (pinned && listing.id === pinned.id) return;
+      if (pinnedSet.has(listing.id)) return;
       const cost =
         (legs[position]?.duration?.value ?? 0) +
         (legs[position + 1]?.duration?.value ?? 0);

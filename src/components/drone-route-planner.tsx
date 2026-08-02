@@ -26,10 +26,11 @@ export function DroneRoutePlanner({
   const [plan, setPlan] = useState<RoutePlan | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pinnedId, setPinnedId] = useState<string>("");
+  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const rendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
 
   const needsPhotos = listings.filter((l) => l.photoStatus !== "HAS_PHOTOS");
+  const pinnedListings = needsPhotos.filter((l) => pinnedIds.includes(l.id));
 
   async function calculate() {
     if (!map) {
@@ -45,7 +46,7 @@ export function DroneRoutePlanner({
       const result = await planRoute({
         origin: { lat: HOME_BASE.lat, lng: HOME_BASE.lng },
         candidates: needsPhotos,
-        pinnedId: pinnedId || null,
+        pinnedIds,
       });
 
       rendererRef.current ??= new google.maps.DirectionsRenderer({
@@ -97,20 +98,47 @@ export function DroneRoutePlanner({
       </div>
 
       <label className="mt-3 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
-        Must include (optional)
+        Must-include stops (optional)
         <select
-          value={pinnedId}
-          onChange={(e) => setPinnedId(e.target.value)}
+          value=""
+          onChange={(e) => {
+            const id = e.target.value;
+            if (id && !pinnedIds.includes(id)) {
+              setPinnedIds((ids) => [...ids, id]);
+            }
+          }}
           className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         >
-          <option value="">No particular listing</option>
-          {needsPhotos.map((l) => (
-            <option key={l.id} value={l.id}>
-              {listingLabel(l)}
-            </option>
-          ))}
+          <option value="">Add a stop…</option>
+          {needsPhotos
+            .filter((l) => !pinnedIds.includes(l.id))
+            .map((l) => (
+              <option key={l.id} value={l.id}>
+                {listingLabel(l)}
+              </option>
+            ))}
         </select>
       </label>
+
+      {pinnedListings.length > 0 ? (
+        <ul className="mt-2 flex flex-wrap gap-1.5">
+          {pinnedListings.map((l) => (
+            <li key={l.id}>
+              <button
+                type="button"
+                onClick={() =>
+                  setPinnedIds((ids) => ids.filter((id) => id !== l.id))
+                }
+                title="Remove from route"
+                className="inline-flex max-w-[16rem] items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-950 dark:text-emerald-200 dark:hover:bg-emerald-900"
+              >
+                <span className="truncate">{listingLabel(l)}</span>
+                <span aria-hidden>×</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
       <button
         type="button"
@@ -155,8 +183,8 @@ export function DroneRoutePlanner({
 
           {overCap ? (
             <p className="text-xs text-amber-600 dark:text-amber-400">
-              This is over the 2-hour cap — the must-include listing is too far
-              out to pair with anything else.
+              Over the 2-hour cap — the must-include stops can&apos;t be reached
+              any faster. Remove one, or accept the longer day.
             </p>
           ) : null}
 

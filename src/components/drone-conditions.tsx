@@ -1,5 +1,5 @@
 import { fetchConditions, flightVerdict, weatherLabel } from "@/lib/weather";
-import { compassPoint, sunPosition, sunTimes } from "@/lib/sun";
+import { sunPosition, sunTimes } from "@/lib/sun";
 import { DISPLAY_TIMEZONE } from "@/lib/drone-shots";
 
 const VERDICT_STYLE = {
@@ -36,8 +36,9 @@ function hourLabel(iso: string): string {
 }
 
 /**
- * Flight conditions for the photographer: whether the drone can go up now, and
- * when the light will be worth the drive.
+ * One slim strip: go/no-go, the numbers that ground a drone, and the day's
+ * light windows. The hourly forecast tucks behind a disclosure so the map
+ * stays the star of the page.
  */
 export async function DroneConditions({
   latitude,
@@ -52,166 +53,112 @@ export async function DroneConditions({
   const conditions = await fetchConditions(latitude, longitude);
   const sun = sunTimes(now, latitude, longitude);
   const position = sunPosition(now, latitude, longitude);
-  const isUp = position.altitude > 0;
+  const verdict = conditions ? flightVerdict(conditions.current) : null;
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      <section className="rounded-2xl border border-zinc-200 bg-white/80 p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">
-              Flight conditions
-            </h3>
-            <p className="text-xs text-zinc-500">{placeLabel}</p>
-          </div>
-          {conditions ? (
-            <span
-              className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${VERDICT_STYLE[flightVerdict(conditions.current).verdict]}`}
-            >
-              {VERDICT_LABEL[flightVerdict(conditions.current).verdict]}
-            </span>
-          ) : null}
-        </div>
-
-        {!conditions ? (
-          <p className="mt-4 text-sm text-zinc-500">
-            Weather is unavailable right now.
-          </p>
-        ) : (
+    <section className="rounded-2xl border border-zinc-200 bg-white/80 px-4 py-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        {conditions && verdict ? (
           <>
-            <div className="mt-4 flex items-end gap-3">
-              <p className="text-3xl font-semibold tabular-nums text-zinc-900 dark:text-white">
-                {Math.round(conditions.current.temperatureF)}°
-              </p>
-              <div className="pb-1">
-                <p className="text-sm text-zinc-700 dark:text-zinc-300">
-                  {weatherLabel(conditions.current.code)}
-                </p>
-                <p className="text-xs text-zinc-500">
-                  {flightVerdict(conditions.current).reason}
-                </p>
-              </div>
-            </div>
-
-            <dl className="mt-4 grid grid-cols-3 gap-2 text-center">
-              {[
-                { k: "Wind", v: `${Math.round(conditions.current.windMph)} mph` },
-                { k: "Gusts", v: `${Math.round(conditions.current.gustMph)} mph` },
-                { k: "Cloud", v: `${Math.round(conditions.current.cloudCover)}%` },
-              ].map(({ k, v }) => (
-                <div
-                  key={k}
-                  className="rounded-lg bg-zinc-50 px-2 py-2 dark:bg-zinc-900"
-                >
-                  <dt className="text-[0.65rem] tracking-wide text-zinc-500 uppercase">
-                    {k}
-                  </dt>
-                  <dd className="text-sm font-medium tabular-nums text-zinc-900 dark:text-white">
-                    {v}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-
-            <div className="mt-4">
-              <p className="text-[0.65rem] tracking-wide text-zinc-500 uppercase">
-                Next 12 hours
-              </p>
-              <ul className="mt-2 flex gap-1 overflow-x-auto pb-1">
-                {conditions.hourly.map((h) => {
-                  const { verdict } = flightVerdict(h);
-                  return (
-                    <li
-                      key={h.time}
-                      className="flex min-w-[3.25rem] shrink-0 flex-col items-center gap-1 rounded-lg bg-zinc-50 px-1.5 py-2 dark:bg-zinc-900"
-                    >
-                      <span className="text-[0.65rem] text-zinc-500">
-                        {hourLabel(h.time)}
-                      </span>
-                      <span
-                        className={`h-1.5 w-full rounded-full ${
-                          verdict === "GO"
-                            ? "bg-emerald-500"
-                            : verdict === "MARGINAL"
-                              ? "bg-amber-500"
-                              : "bg-rose-500"
-                        }`}
-                      />
-                      <span className="text-xs font-medium tabular-nums text-zinc-900 dark:text-white">
-                        {Math.round(h.temperatureF)}°
-                      </span>
-                      <span className="text-[0.65rem] text-zinc-500 tabular-nums">
-                        {Math.round(h.gustMph)}g
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
+            <span
+              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${VERDICT_STYLE[verdict.verdict]}`}
+            >
+              {VERDICT_LABEL[verdict.verdict]}
+            </span>
+            <span className="text-xl font-semibold tabular-nums text-zinc-900 dark:text-white">
+              {Math.round(conditions.current.temperatureF)}°
+            </span>
+            <span className="text-sm text-zinc-700 dark:text-zinc-300">
+              {weatherLabel(conditions.current.code)}
+            </span>
+            <span className="text-xs text-zinc-500">
+              Wind {Math.round(conditions.current.windMph)} · gusts{" "}
+              {Math.round(conditions.current.gustMph)} mph
+            </span>
           </>
+        ) : (
+          <span className="text-xs text-zinc-500">
+            Weather is unavailable right now.
+          </span>
         )}
-      </section>
 
-      <section className="rounded-2xl border border-zinc-200 bg-white/80 p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
-        <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">
-          Sun &amp; light
-        </h3>
-        <p className="text-xs text-zinc-500">
-          {isUp
-            ? `Sun is ${Math.round(position.altitude)}° up, bearing ${Math.round(position.azimuth)}° ${compassPoint(position.azimuth)}`
-            : "Sun is below the horizon"}
-        </p>
+        <span
+          className="hidden h-6 w-px bg-zinc-200 sm:block dark:bg-zinc-800"
+          aria-hidden
+        />
 
         <SunArc altitude={position.altitude} azimuth={position.azimuth} />
+        <span className="text-xs text-zinc-500">
+          <span className="font-medium text-zinc-700 dark:text-zinc-300">
+            ☀ {time(sun.sunrise)} – {time(sun.sunset)}
+          </span>
+          {" · "}golden {time(sun.sunrise)}–{time(sun.morningGoldenEnd)} &amp;{" "}
+          {time(sun.eveningGoldenStart)}–{time(sun.sunset)}
+        </span>
 
-        <dl className="mt-4 space-y-1.5 text-sm">
-          {[
-            { k: "First light", v: time(sun.dawn) },
-            { k: "Sunrise", v: time(sun.sunrise) },
-            {
-              k: "Morning golden hour",
-              v: `${time(sun.sunrise)} – ${time(sun.morningGoldenEnd)}`,
-            },
-            {
-              k: "Evening golden hour",
-              v: `${time(sun.eveningGoldenStart)} – ${time(sun.sunset)}`,
-            },
-            { k: "Sunset", v: time(sun.sunset) },
-            { k: "Last light", v: time(sun.dusk) },
-          ].map(({ k, v }) => (
-            <div key={k} className="flex items-baseline justify-between gap-3">
-              <dt className="text-xs text-zinc-500">{k}</dt>
-              <dd className="text-xs font-medium tabular-nums text-zinc-900 dark:text-white">
-                {v}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </section>
-    </div>
+        <span className="ml-auto hidden text-[0.7rem] text-zinc-400 md:block">
+          {placeLabel}
+        </span>
+      </div>
+
+      {conditions ? (
+        <details className="mt-1.5">
+          <summary className="cursor-pointer text-xs text-zinc-500 select-none">
+            12-hour forecast
+          </summary>
+          <ul className="mt-2 flex gap-1 overflow-x-auto pb-1">
+            {conditions.hourly.map((h) => {
+              const hv = flightVerdict(h);
+              return (
+                <li
+                  key={h.time}
+                  className="flex min-w-[3.25rem] shrink-0 flex-col items-center gap-1 rounded-lg bg-zinc-50 px-1.5 py-2 dark:bg-zinc-900"
+                >
+                  <span className="text-[0.65rem] text-zinc-500">
+                    {hourLabel(h.time)}
+                  </span>
+                  <span
+                    className={`h-1.5 w-full rounded-full ${
+                      hv.verdict === "GO"
+                        ? "bg-emerald-500"
+                        : hv.verdict === "MARGINAL"
+                          ? "bg-amber-500"
+                          : "bg-rose-500"
+                    }`}
+                  />
+                  <span className="text-xs font-medium tabular-nums text-zinc-900 dark:text-white">
+                    {Math.round(h.temperatureF)}°
+                  </span>
+                  <span className="text-[0.65rem] text-zinc-500 tabular-nums">
+                    {Math.round(h.gustMph)}g
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </details>
+      ) : null}
+    </section>
   );
 }
 
-/**
- * The sun's current height drawn on a horizon arc — a quick read on how much
- * usable light is left and from which side it is falling.
- */
+/** A palm-sized horizon arc showing where the sun sits right now. */
 function SunArc({ altitude, azimuth }: { altitude: number; azimuth: number }) {
-  const width = 240;
-  const height = 96;
-  const horizon = height - 16;
-  const radius = width / 2 - 12;
+  const width = 120;
+  const height = 40;
+  const horizon = height - 8;
+  const radius = width / 2 - 8;
 
   // Map the sun's compass bearing onto the arc: east on the left, west right.
   const t = Math.min(1, Math.max(0, (azimuth - 60) / 240));
   const clampedAltitude = Math.min(90, Math.max(-6, altitude));
-  const x = 12 + t * (width - 24);
+  const x = 8 + t * (width - 16);
   const y = horizon - (clampedAltitude / 90) * radius;
 
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
-      className="mt-3 w-full"
+      className="h-10 w-[7.5rem] shrink-0"
       role="img"
       aria-label={`Sun ${Math.round(altitude)} degrees above the horizon`}
     >
@@ -222,41 +169,29 @@ function SunArc({ altitude, azimuth }: { altitude: number; azimuth: number }) {
         </linearGradient>
       </defs>
       <path
-        d={`M 12 ${horizon} A ${radius} ${radius} 0 0 1 ${width - 12} ${horizon} Z`}
+        d={`M 8 ${horizon} A ${radius} ${radius} 0 0 1 ${width - 8} ${horizon} Z`}
         fill="url(#sky)"
       />
       <line
-        x1="4"
+        x1="2"
         y1={horizon}
-        x2={width - 4}
+        x2={width - 2}
         y2={horizon}
         stroke="currentColor"
         strokeOpacity="0.25"
-        strokeWidth="1.5"
+        strokeWidth="1"
       />
       {altitude > -6 ? (
         <circle
           cx={x}
           cy={y}
-          r="7"
+          r="4"
           fill={altitude > 6 ? "#fbbf24" : "#fb923c"}
           stroke="#ffffff"
           strokeOpacity="0.7"
-          strokeWidth="1.5"
+          strokeWidth="1"
         />
       ) : null}
-      <text x="12" y={height - 2} className="text-[8px]" fill="currentColor" opacity="0.5">
-        E
-      </text>
-      <text
-        x={width - 18}
-        y={height - 2}
-        className="text-[8px]"
-        fill="currentColor"
-        opacity="0.5"
-      >
-        W
-      </text>
     </svg>
   );
 }

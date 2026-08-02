@@ -93,13 +93,17 @@ export function listingLocality(listing: {
  * split the two apart.
  */
 export const HOME_BASE = {
-  lat: Number(process.env.NEXT_PUBLIC_DRONE_HOME_LAT ?? 39.9612),
-  lng: Number(process.env.NEXT_PUBLIC_DRONE_HOME_LNG ?? -82.9988),
-  label: process.env.NEXT_PUBLIC_DRONE_HOME_LABEL || "Columbus, OH",
+  // The BCRE office at 4608 Sawmill Rd, Columbus, OH 43220 (rooftop geocode).
+  lat: Number(process.env.NEXT_PUBLIC_DRONE_HOME_LAT ?? 40.061933),
+  lng: Number(process.env.NEXT_PUBLIC_DRONE_HOME_LNG ?? -83.092337),
+  label: process.env.NEXT_PUBLIC_DRONE_HOME_LABEL || "4608 Sawmill Rd",
 };
 
 /** How far around home base address search stays useful, in metres. */
 export const SEARCH_BIAS_RADIUS_M = 60_000;
+
+/** Ring colour marking pins with an open drone-shoot request. */
+export const REQUESTED_PIN_ACCENT = "#0284c7";
 
 export const DEFAULT_MAP_CENTER = { lat: HOME_BASE.lat, lng: HOME_BASE.lng };
 export const DEFAULT_MAP_ZOOM = 10;
