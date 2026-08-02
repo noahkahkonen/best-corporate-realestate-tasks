@@ -58,6 +58,11 @@ export function canArchiveListing(role: Role): boolean {
   return role === "MANAGER";
 }
 
+/** Admins and managers can drag a mislocated pin to the right parcel. */
+export function canMovePin(role: Role): boolean {
+  return role === "ADMIN" || role === "MANAGER";
+}
+
 /** Display name for a listing — the nickname if it has one, else the address. */
 export function listingLabel(listing: {
   name: string | null;

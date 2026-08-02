@@ -26,6 +26,8 @@ export type ListingView = {
   photoStatus: PhotoStatus;
   photoNote: string | null;
   lastShotAt: string | null;
+  agent: string | null;
+  dealType: string | null;
   addedByName: string | null;
   addedAt: string;
   droneTasks: DroneTaskView[];
@@ -74,6 +76,8 @@ export async function loadListings(): Promise<ListingView[]> {
     photoStatus: l.photoStatus,
     photoNote: l.photoNote,
     lastShotAt: l.lastShotAt?.toISOString() ?? null,
+    agent: l.agent,
+    dealType: l.dealType,
     addedByName: l.createdBy?.name ?? null,
     addedAt: l.createdAt.toISOString(),
     droneTasks: l.droneTasks.map((t) => ({

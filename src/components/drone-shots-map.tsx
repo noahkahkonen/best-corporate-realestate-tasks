@@ -13,6 +13,7 @@ import {
   PHOTO_STATUS_META,
   PHOTO_STATUS_ORDER,
   canArchiveListing,
+  canMovePin,
   canPlanRoutes,
   canSeeAddedBy,
   canSetPhotoStatus,
@@ -20,9 +21,11 @@ import {
   listingLocality,
 } from "@/lib/drone-shots";
 import { loadGoogleMaps } from "@/lib/google-maps-loader";
+import { moveListing } from "@/server/drone-shots-actions";
 import {
   ArchiveListingForm,
   PhotoStatusForm,
+  PlacePinForm,
   RequestDroneShotForm,
 } from "@/components/drone-shots-forms";
 import { DroneRoutePlanner } from "@/components/drone-route-planner";
@@ -73,6 +76,14 @@ export function DroneShotsMap({
   const [filter, setFilter] = useState<"ALL" | (typeof PHOTO_STATUS_ORDER)[number]>(
     "ALL",
   );
+  // Click-to-place: "new" drops a fresh pin, "move" relocates an existing one.
+  const [placing, setPlacing] = useState<
+    null | { mode: "new" } | { mode: "move"; listing: ListingView }
+  >(null);
+  const [draftPin, setDraftPin] = useState<{ lat: number; lng: number } | null>(
+    null,
+  );
+  const [placeNotice, setPlaceNotice] = useState<string | null>(null);
 
   const mapNode = useRef<HTMLDivElement | null>(null);
   const searchNode = useRef<HTMLDivElement | null>(null);
@@ -84,6 +95,14 @@ export function DroneShotsMap({
   const searchMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(
     null,
   );
+  const draftMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(
+    null,
+  );
+  // Mirrors `placing` for marker click handlers, which are bound once per pin.
+  const placingRef = useRef<typeof placing>(null);
+  useEffect(() => {
+    placingRef.current = placing;
+  }, [placing]);
   const didFitRef = useRef(false);
 
   // The InfoWindow gets a plain container that React portals its content into,
@@ -230,6 +249,80 @@ export function DroneShotsMap({
     });
   }, [map, searchHit]);
 
+  /* ---------------------------------------------------- click-to-place */
+
+  useEffect(() => {
+    if (!map || !placing) return;
+
+    map.setOptions({ draggableCursor: "crosshair" });
+    const listener = map.addListener(
+      "click",
+      async (e: google.maps.MapMouseEvent) => {
+        const ll = e.latLng;
+        if (!ll) return;
+
+        if (placing.mode === "new") {
+          setDraftPin({ lat: ll.lat(), lng: ll.lng() });
+          return;
+        }
+
+        setPlaceNotice(`Moving ${listingLabel(placing.listing)}…`);
+        const result = await moveListing(placing.listing.id, ll.lat(), ll.lng());
+        setPlacing(null);
+        setPlaceNotice(result.error ?? result.ok ?? null);
+      },
+    );
+
+    return () => {
+      listener.remove();
+      map.setOptions({ draggableCursor: null });
+    };
+  }, [map, placing]);
+
+  // The violet draft pin marks where the new parcel will go.
+  useEffect(() => {
+    if (!map) return;
+
+    if (draftMarkerRef.current) {
+      draftMarkerRef.current.map = null;
+      draftMarkerRef.current = null;
+    }
+    if (!draftPin) return;
+
+    const { AdvancedMarkerElement, PinElement } = google.maps.marker;
+    const pin = new PinElement({
+      background: "#7c3aed",
+      borderColor: "#4c1d95",
+      glyphColor: "#ffffff",
+      scale: 1.2,
+    });
+    draftMarkerRef.current = new AdvancedMarkerElement({
+      map,
+      position: draftPin,
+      content: pin.element,
+      title: "New parcel pin",
+      zIndex: 25,
+    });
+  }, [map, draftPin]);
+
+  const cancelPlacing = useCallback(() => {
+    setPlacing(null);
+    setDraftPin(null);
+    setPlaceNotice(null);
+  }, []);
+
+  const beginMove = useCallback(
+    (listing: ListingView) => {
+      infoWindowRef.current?.close();
+      setSelectedId(null);
+      setSearchHit(null);
+      setDraftPin(null);
+      setPlaceNotice(null);
+      setPlacing({ mode: "move", listing });
+    },
+    [],
+  );
+
   /* ------------------------------------------------------------- pins */
 
   useEffect(() => {
@@ -271,6 +364,7 @@ export function DroneShotsMap({
         content: pin.element,
       });
       marker.addListener("click", () => {
+        if (placingRef.current) return;
         setSearchHit(null);
         setSelectedId(listing.id);
       });
@@ -327,8 +421,13 @@ export function DroneShotsMap({
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border border-zinc-200 bg-white/80 p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
+    // Full-bleed: the map spans the viewport while the rest of the portal stays
+    // in its column. Panels float over the map on desktop and stack around it
+    // on small screens.
+    <div className="relative left-1/2 w-screen -translate-x-1/2">
+      <div className="relative">
+        <div className="px-4 pb-3 sm:px-6 lg:absolute lg:top-4 lg:left-4 lg:z-10 lg:w-96 lg:p-0">
+          <div className="rounded-2xl border border-zinc-200 bg-white/95 p-4 shadow-lg backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95">
         <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
           Search an address
           <div
@@ -337,8 +436,7 @@ export function DroneShotsMap({
           />
         </label>
         <p className="mt-1.5 text-xs text-zinc-500">
-          {HOME_BASE.label} results come up first. You can request a drone photo
-          for any address, even one that isn&apos;t pinned yet.
+          {`Results near ${HOME_BASE.label} come up first. You can request a drone photo for any address, even one that isn't pinned yet.`}
         </p>
 
         {searchHit ? (
@@ -368,54 +466,120 @@ export function DroneShotsMap({
             </div>
           </div>
         ) : null}
-      </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        {filters.map((f) => (
-          <button
-            key={f.key}
-            type="button"
-            onClick={() => setFilter(f.key)}
-            className={
-              filter === f.key
-                ? "inline-flex items-center gap-2 rounded-full bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white dark:bg-white dark:text-zinc-900"
-                : "inline-flex items-center gap-2 rounded-full border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            }
-          >
-            {f.key !== "ALL" ? (
-              <span
-                className="h-2 w-2 rounded-full"
-                style={{ background: PHOTO_STATUS_META[f.key].pin }}
-              />
-            ) : null}
-            {f.label}
-            <span className="tabular-nums opacity-70">{f.count}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-[1.7fr_1fr]">
-        <div className="overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800">
-          {!apiKey ? (
-            <MapSetupNotice />
-          ) : mapError ? (
-            <div className="flex h-[34rem] items-center justify-center p-8 text-center">
-              <p className="text-sm text-rose-600 dark:text-rose-400">{mapError}</p>
+        <div className="mt-3 border-t border-zinc-100 pt-3 dark:border-zinc-800">
+          {placing?.mode === "move" ? (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-violet-700 dark:text-violet-300">
+                Click the map where {listingLabel(placing.listing)} actually
+                sits.
+              </p>
+              <button
+                type="button"
+                onClick={cancelPlacing}
+                className="text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-900 dark:hover:text-white"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : draftPin ? (
+            <PlacePinForm
+              latitude={draftPin.lat}
+              longitude={draftPin.lng}
+              onDone={cancelPlacing}
+              onCancel={cancelPlacing}
+            />
+          ) : placing?.mode === "new" ? (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-violet-700 dark:text-violet-300">
+                Click the map where the parcel sits.
+              </p>
+              <button
+                type="button"
+                onClick={cancelPlacing}
+                className="text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-900 dark:hover:text-white"
+              >
+                Cancel
+              </button>
             </div>
           ) : (
-            <div
-              ref={mapNode}
-              className="h-[34rem] w-full bg-zinc-100 dark:bg-zinc-900"
-            />
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-zinc-500">
+                Parcel without a street number?
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchHit(null);
+                  setSelectedId(null);
+                  infoWindowRef.current?.close();
+                  setPlaceNotice(null);
+                  setPlacing({ mode: "new" });
+                }}
+                className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                Drop a pin instead
+              </button>
+            </div>
           )}
+          {placeNotice && !placing && !draftPin ? (
+            <button
+              type="button"
+              onClick={() => setPlaceNotice(null)}
+              className="mt-2 block text-left text-xs font-medium text-emerald-600 dark:text-emerald-400"
+            >
+              {placeNotice} (dismiss)
+            </button>
+          ) : null}
+        </div>
+          </div>
         </div>
 
-        <div className="space-y-4">
+        {!apiKey ? (
+          <MapSetupNotice />
+        ) : mapError ? (
+          <div className="flex h-[55vh] min-h-[24rem] items-center justify-center p-8 text-center lg:h-[78vh]">
+            <p className="text-sm text-rose-600 dark:text-rose-400">{mapError}</p>
+          </div>
+        ) : (
+          <div
+            ref={mapNode}
+            className="h-[55vh] min-h-[24rem] w-full bg-zinc-100 lg:h-[78vh] dark:bg-zinc-900"
+          />
+        )}
+
+        <div className="space-y-3 px-4 pt-3 sm:px-6 lg:pointer-events-none lg:absolute lg:top-4 lg:right-4 lg:bottom-4 lg:z-10 lg:w-80 lg:overflow-y-auto lg:p-0">
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-zinc-200 bg-white/95 p-3 shadow-lg backdrop-blur lg:pointer-events-auto dark:border-zinc-800 dark:bg-zinc-950/95">
+            {filters.map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => setFilter(f.key)}
+                className={
+                  filter === f.key
+                    ? "inline-flex items-center gap-2 rounded-full bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white dark:bg-white dark:text-zinc-900"
+                    : "inline-flex items-center gap-2 rounded-full border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                }
+              >
+                {f.key !== "ALL" ? (
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ background: PHOTO_STATUS_META[f.key].pin }}
+                  />
+                ) : null}
+                {f.label}
+                <span className="tabular-nums opacity-70">{f.count}</span>
+              </button>
+            ))}
+          </div>
+
           {canPlanRoutes(role) ? (
-            <DroneRoutePlanner listings={listings} map={map} onFocus={focus} />
+            <div className="lg:pointer-events-auto">
+              <DroneRoutePlanner listings={listings} map={map} onFocus={focus} />
+            </div>
           ) : null}
 
-          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800">
+          <div className="rounded-2xl border border-zinc-200 bg-white/95 shadow-lg backdrop-blur lg:pointer-events-auto dark:border-zinc-800 dark:bg-zinc-950/95">
             <p className="border-b border-zinc-100 px-4 py-3 text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:border-zinc-800">
               {visible.length} listing{visible.length === 1 ? "" : "s"}
             </p>
@@ -426,7 +590,7 @@ export function DroneShotsMap({
                   : "Nothing matches this filter."}
               </p>
             ) : (
-              <ul className="max-h-[24rem] divide-y divide-zinc-100 overflow-y-auto dark:divide-zinc-800">
+              <ul className="max-h-[24rem] divide-y divide-zinc-100 overflow-y-auto lg:max-h-none dark:divide-zinc-800">
                 {visible.map((l) => (
                   <li key={l.id}>
                     <button
@@ -467,7 +631,12 @@ export function DroneShotsMap({
 
       {popupHost && selected
         ? createPortal(
-            <ListingPopup listing={selected} role={role} onClose={closePopup} />,
+            <ListingPopup
+              listing={selected}
+              role={role}
+              onClose={closePopup}
+              onMove={beginMove}
+            />,
             popupHost,
           )
         : null}
@@ -501,10 +670,12 @@ function ListingPopup({
   listing,
   role,
   onClose,
+  onMove,
 }: {
   listing: ListingView;
   role: Role;
   onClose: () => void;
+  onMove: (listing: ListingView) => void;
 }) {
   const meta = PHOTO_STATUS_META[listing.photoStatus];
   const live = listing.droneTasks.find(
@@ -541,6 +712,16 @@ function ListingPopup({
         {listing.propertyType ? (
           <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600">
             {listing.propertyType}
+          </span>
+        ) : null}
+        {listing.dealType ? (
+          <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600">
+            For {listing.dealType}
+          </span>
+        ) : null}
+        {listing.agent ? (
+          <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600">
+            Agent {listing.agent}
           </span>
         ) : null}
       </div>
@@ -581,9 +762,20 @@ function ListingPopup({
           }
         />
 
-        {canArchiveListing(role) ? (
-          <div className="border-t border-zinc-100 pt-2">
-            <ArchiveListingForm listingId={listing.id} />
+        {canMovePin(role) || canArchiveListing(role) ? (
+          <div className="flex flex-wrap items-center gap-3 border-t border-zinc-100 pt-2">
+            {canMovePin(role) ? (
+              <button
+                type="button"
+                onClick={() => onMove(listing)}
+                className="text-xs font-medium text-zinc-500 underline underline-offset-2 hover:text-violet-700"
+              >
+                Move pin
+              </button>
+            ) : null}
+            {canArchiveListing(role) ? (
+              <ArchiveListingForm listingId={listing.id} />
+            ) : null}
           </div>
         ) : null}
       </div>

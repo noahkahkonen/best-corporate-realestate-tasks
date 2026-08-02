@@ -19,6 +19,13 @@
   }
 }
 
+html {
+  /* The Drone Shots map bleeds to w-screen, which includes the scrollbar
+     gutter; clip the sliver of horizontal overflow so it doesn't add a
+     page-wide horizontal scrollbar. */
+  overflow-x: clip;
+}
+
 body {
   background: transparent;
   color: var(--foreground);
