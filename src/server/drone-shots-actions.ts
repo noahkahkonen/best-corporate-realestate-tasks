@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import type { PhotoStatus } from "@prisma/client";
+import { Prisma, type PhotoStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 import { geocodeAddress } from "@/lib/geocode";
@@ -171,6 +171,56 @@ export async function placeListing(
 
   revalidateAll();
   return { ok: `Pinned ${address}.` };
+}
+
+/**
+ * Admin/manager: save (or clear, with null) a parcel outline traced on the
+ * map — how the photographer knows exactly which ground an addressless
+ * piece of land includes.
+ */
+export async function setListingBoundary(
+  listingId: string,
+  points: { lat: number; lng: number }[] | null,
+): Promise<ActionState> {
+  const session = await requireRole([...ALL_ROLES]);
+  if (!canMovePin(session.user.role)) {
+    return { error: "Only admins and managers can edit parcel borders." };
+  }
+
+  if (points !== null) {
+    if (!Array.isArray(points) || points.length < 3) {
+      return { error: "A parcel outline needs at least three corners." };
+    }
+    if (points.length > 200) {
+      return { error: "That outline has too many points." };
+    }
+    for (const p of points) {
+      if (
+        !Number.isFinite(p?.lat) || p.lat < -90 || p.lat > 90 ||
+        !Number.isFinite(p?.lng) || p.lng < -180 || p.lng > 180
+      ) {
+        return { error: "That outline is not on the map." };
+      }
+    }
+  }
+
+  const listing = await prisma.listing.findUnique({ where: { id: listingId } });
+  if (!listing || listing.archived) {
+    return { error: "That listing is no longer on the map." };
+  }
+
+  await prisma.listing.update({
+    where: { id: listingId },
+    data: {
+      boundary:
+        points === null
+          ? Prisma.DbNull
+          : points.map((p) => ({ lat: p.lat, lng: p.lng })),
+    },
+  });
+
+  revalidateAll();
+  return { ok: points === null ? "Borders removed." : "Parcel borders saved." };
 }
 
 /** Admin/manager: move a mislocated pin to where the parcel actually is. */

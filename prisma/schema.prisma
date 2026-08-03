@@ -128,6 +128,11 @@ model Listing {
   agent    String?
   dealType String?
 
+  /// Parcel outline for land with no usable address: an array of
+  /// {lat, lng} vertices traced on the map, so the photographer knows
+  /// exactly which ground is included.
+  boundary Json?
+
   createdById String?
   createdBy   User?   @relation("ListingCreator", fields: [createdById], references: [id], onDelete: SetNull)
 

@@ -28,6 +28,7 @@ export type ListingView = {
   lastShotAt: string | null;
   agent: string | null;
   dealType: string | null;
+  boundary: { lat: number; lng: number }[] | null;
   addedByName: string | null;
   addedAt: string;
   droneTasks: DroneTaskView[];
@@ -78,6 +79,9 @@ export async function loadListings(): Promise<ListingView[]> {
     lastShotAt: l.lastShotAt?.toISOString() ?? null,
     agent: l.agent,
     dealType: l.dealType,
+    boundary: Array.isArray(l.boundary)
+      ? (l.boundary as { lat: number; lng: number }[])
+      : null,
     addedByName: l.createdBy?.name ?? null,
     addedAt: l.createdAt.toISOString(),
     droneTasks: l.droneTasks.map((t) => ({
