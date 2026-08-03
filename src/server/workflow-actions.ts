@@ -248,8 +248,30 @@ export async function managerApprove(formData: FormData) {
       redoRequestNote: null,
     },
   });
+  await queueApprovedDroneShoot(existing.listingId);
   after(() => notifyAdminOfAssignment(id));
   revalidateAll();
+}
+
+/**
+ * An approved drone shoot goes straight into the photographer's queue, so the
+ * map and the route planner agree with the task list without anyone having to
+ * set the status by hand. Listings that already have photos are left alone —
+ * approving a re-shoot shouldn't erase the fact that they were shot.
+ */
+async function queueApprovedDroneShoot(listingId: string | null) {
+  if (!listingId) return;
+  await prisma.listing.updateMany({
+    where: {
+      id: listingId,
+      archived: false,
+      photoStatus: { in: ["NO_PHOTOS", "NEEDS_MORE"] },
+    },
+    data: { photoStatus: "NEXT_ROUTE" },
+  });
+  for (const p of ["/agent/drone-shots", "/manager/drone-shots", "/admin/drone-shots"]) {
+    revalidatePath(p, "layout");
+  }
 }
 
 /** Manager: ask agent to revise */
