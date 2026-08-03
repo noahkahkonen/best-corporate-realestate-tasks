@@ -22,7 +22,7 @@ import {
   listingLocality,
 } from "@/lib/drone-shots";
 import { loadGoogleMaps } from "@/lib/google-maps-loader";
-import { moveListing } from "@/server/drone-shots-actions";
+import { moveListing, setListingBoundary } from "@/server/drone-shots-actions";
 import {
   ArchiveListingForm,
   PhotoStatusForm,
@@ -78,13 +78,21 @@ export function DroneShotsMap({
   const [filter, setFilter] = useState<
     "ALL" | "REQUESTED" | (typeof PHOTO_STATUS_ORDER)[number]
   >("ALL");
-  // Click-to-place: "new" drops a fresh pin, "move" relocates an existing one.
+  // Click-to-place: "new" drops a fresh pin, "move" relocates an existing
+  // one, "draw" traces a parcel outline corner by corner.
   const [placing, setPlacing] = useState<
-    null | { mode: "new" } | { mode: "move"; listing: ListingView }
+    | null
+    | { mode: "new" }
+    | { mode: "move"; listing: ListingView }
+    | { mode: "draw"; listing: ListingView }
   >(null);
   const [draftPin, setDraftPin] = useState<{ lat: number; lng: number } | null>(
     null,
   );
+  const [drawPoints, setDrawPoints] = useState<{ lat: number; lng: number }[]>(
+    [],
+  );
+  const [savingBorders, setSavingBorders] = useState(false);
   const [placeNotice, setPlaceNotice] = useState<string | null>(null);
 
   const mapNode = useRef<HTMLDivElement | null>(null);
@@ -286,6 +294,11 @@ export function DroneShotsMap({
           return;
         }
 
+        if (placing.mode === "draw") {
+          setDrawPoints((prev) => [...prev, { lat: ll.lat(), lng: ll.lng() }]);
+          return;
+        }
+
         setPlaceNotice(`Moving ${listingLabel(placing.listing)}…`);
         const result = await moveListing(placing.listing.id, ll.lat(), ll.lng());
         setPlacing(null);
@@ -325,9 +338,73 @@ export function DroneShotsMap({
     });
   }, [map, draftPin]);
 
+  // The in-progress outline, violet until it is saved.
+  const previewPolyRef = useRef<google.maps.Polygon | null>(null);
+  useEffect(() => {
+    if (!map) return;
+    previewPolyRef.current?.setMap(null);
+    previewPolyRef.current = null;
+    if (placing?.mode !== "draw" || drawPoints.length === 0) return;
+
+    const poly = new google.maps.Polygon({
+      map,
+      paths: drawPoints,
+      strokeColor: "#7c3aed",
+      strokeWeight: 2,
+      fillColor: "#7c3aed",
+      fillOpacity: 0.12,
+      clickable: false,
+    });
+    previewPolyRef.current = poly;
+    return () => poly.setMap(null);
+  }, [map, placing, drawPoints]);
+
+  // Saved parcel outlines, tinted by photo status like their pins.
+  const boundaryPolysRef = useRef(new Map<string, google.maps.Polygon>());
+  useEffect(() => {
+    if (!map) return;
+    const polys = boundaryPolysRef.current;
+    const wanted = new Map(
+      visible
+        .filter((l) => l.boundary && l.boundary.length >= 3)
+        .map((l) => [l.id, l] as const),
+    );
+
+    for (const [id, poly] of polys) {
+      if (!wanted.has(id)) {
+        poly.setMap(null);
+        polys.delete(id);
+      }
+    }
+
+    for (const [id, listing] of wanted) {
+      const color = PHOTO_STATUS_META[listing.photoStatus].pin;
+      let poly = polys.get(id);
+      if (!poly) {
+        poly = new google.maps.Polygon({ map });
+        poly.addListener("click", () => {
+          if (placingRef.current) return;
+          setSearchHit(null);
+          setSelectedId(id);
+        });
+        polys.set(id, poly);
+      }
+      poly.setOptions({
+        paths: listing.boundary!,
+        strokeColor: color,
+        strokeOpacity: 0.9,
+        strokeWeight: 2,
+        fillColor: color,
+        fillOpacity: 0.12,
+        clickable: !placing,
+      });
+    }
+  }, [map, visible, placing]);
+
   const cancelPlacing = useCallback(() => {
     setPlacing(null);
     setDraftPin(null);
+    setDrawPoints([]);
     setPlaceNotice(null);
   }, []);
 
@@ -342,6 +419,32 @@ export function DroneShotsMap({
     },
     [],
   );
+
+  const beginDraw = useCallback((listing: ListingView) => {
+    infoWindowRef.current?.close();
+    setSelectedId(null);
+    setSearchHit(null);
+    setDraftPin(null);
+    setDrawPoints([]);
+    setPlaceNotice(null);
+    setPlacing({ mode: "draw", listing });
+  }, []);
+
+  const finishDraw = useCallback(async () => {
+    if (placing?.mode !== "draw" || drawPoints.length < 3) return;
+    setSavingBorders(true);
+    const result = await setListingBoundary(placing.listing.id, drawPoints);
+    setSavingBorders(false);
+    setPlacing(null);
+    setDraftPin(null);
+    setDrawPoints([]);
+    setPlaceNotice(result.error ?? result.ok ?? null);
+  }, [placing, drawPoints]);
+
+  const clearBorders = useCallback(async (listing: ListingView) => {
+    const result = await setListingBoundary(listing.id, null);
+    setPlaceNotice(result.error ?? result.ok ?? null);
+  }, []);
 
   /* ------------------------------------------------------------- pins */
 
@@ -493,7 +596,32 @@ export function DroneShotsMap({
             )}
           </div>
 
-          {placing?.mode === "move" ? (
+          {placing?.mode === "draw" ? (
+            <div className="mt-2 rounded-xl border border-violet-200 bg-white/95 p-3 shadow-lg backdrop-blur dark:border-violet-900 dark:bg-zinc-950/95">
+              <p className="text-xs font-medium text-violet-700 dark:text-violet-300">
+                Tracing {listingLabel(placing.listing)} — click each corner of
+                the parcel ({drawPoints.length} so far).
+              </p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={finishDraw}
+                  disabled={drawPoints.length < 3 || savingBorders}
+                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+                >
+                  {savingBorders ? "Saving…" : "Save borders"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDrawPoints((p) => p.slice(0, -1))}
+                  disabled={drawPoints.length === 0 || savingBorders}
+                  className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                >
+                  Undo corner
+                </button>
+              </div>
+            </div>
+          ) : placing?.mode === "move" ? (
             <p className="mt-2 rounded-xl border border-violet-200 bg-white/95 px-3 py-2 text-xs font-medium text-violet-700 shadow-lg backdrop-blur dark:border-violet-900 dark:bg-zinc-950/95 dark:text-violet-300">
               Click the map where {listingLabel(placing.listing)} actually sits.
             </p>
@@ -673,6 +801,8 @@ export function DroneShotsMap({
               role={role}
               onClose={closePopup}
               onMove={beginMove}
+              onDraw={beginDraw}
+              onClearBorders={clearBorders}
             />,
             popupHost,
           )
@@ -708,11 +838,15 @@ function ListingPopup({
   role,
   onClose,
   onMove,
+  onDraw,
+  onClearBorders,
 }: {
   listing: ListingView;
   role: Role;
   onClose: () => void;
   onMove: (listing: ListingView) => void;
+  onDraw: (listing: ListingView) => void;
+  onClearBorders: (listing: ListingView) => void;
 }) {
   const meta = PHOTO_STATUS_META[listing.photoStatus];
   const live = listing.droneTasks.find(
@@ -802,13 +936,31 @@ function ListingPopup({
         {canMovePin(role) || canArchiveListing(role) ? (
           <div className="flex flex-wrap items-center gap-3 border-t border-zinc-100 pt-2">
             {canMovePin(role) ? (
-              <button
-                type="button"
-                onClick={() => onMove(listing)}
-                className="text-xs font-medium text-zinc-500 underline underline-offset-2 hover:text-violet-700"
-              >
-                Move pin
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => onMove(listing)}
+                  className="text-xs font-medium text-zinc-500 underline underline-offset-2 hover:text-violet-700"
+                >
+                  Move pin
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDraw(listing)}
+                  className="text-xs font-medium text-zinc-500 underline underline-offset-2 hover:text-violet-700"
+                >
+                  {listing.boundary ? "Redraw borders" : "Draw borders"}
+                </button>
+                {listing.boundary ? (
+                  <button
+                    type="button"
+                    onClick={() => onClearBorders(listing)}
+                    className="text-xs font-medium text-zinc-500 underline underline-offset-2 hover:text-rose-600"
+                  >
+                    Remove borders
+                  </button>
+                ) : null}
+              </>
             ) : null}
             {canArchiveListing(role) ? (
               <ArchiveListingForm listingId={listing.id} />
