@@ -166,6 +166,8 @@ export function DroneShotsMap({
           mapTypeId: "roadmap",
           streetViewControl: false,
           mapTypeControl: true,
+          // Pinned to the corner the search bar deliberately leaves clear.
+          mapTypeControlOptions: { position: maps.ControlPosition.TOP_LEFT },
           fullscreenControl: true,
         });
         infoWindowRef.current = new maps.InfoWindow({ maxWidth: 340 });
@@ -453,87 +455,28 @@ export function DroneShotsMap({
     // on small screens.
     <div className="relative left-1/2 w-screen -translate-x-1/2">
       <div className="relative">
-        <div className="px-4 pb-3 sm:px-6 lg:absolute lg:top-3 lg:left-3 lg:z-10 lg:w-80 lg:p-0">
-          <div className="rounded-xl border border-zinc-200 bg-white/95 p-3 shadow-lg backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95">
-        <label className="block">
-          <span className="sr-only">Search an address</span>
-          <div
-            ref={searchNode}
-            className="[&_gmp-place-autocomplete]:w-full"
-          />
-        </label>
-        <p className="mt-1 text-[0.7rem] text-zinc-500">
-          {`Search any address to request a drone photo — ${HOME_BASE.label} area first.`}
-        </p>
-
-        {searchHit ? (
-          <div className="mt-3 rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 dark:border-indigo-900 dark:bg-indigo-950/40">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-zinc-900 dark:text-white">
-                  {searchHit.address}
-                </p>
-                <p className="truncate text-xs text-zinc-500">
-                  {listingLocality(searchHit) || "—"}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSearchHit(null)}
-                className="shrink-0 text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
-              >
-                Clear
-              </button>
+        {/* Thin search bar, centred so Google's Map/Satellite control stays
+            visible in the top-left corner of the frame. */}
+        <div className="px-4 pb-3 sm:px-6 lg:absolute lg:top-3 lg:left-1/2 lg:z-10 lg:w-[30rem] lg:max-w-[calc(100vw-46rem)] lg:min-w-[16rem] lg:-translate-x-1/2 lg:p-0">
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1 rounded-xl border border-zinc-200 bg-white/95 px-2 py-1 shadow-lg backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95">
+              <label className="block">
+                <span className="sr-only">Search an address</span>
+                <div
+                  ref={searchNode}
+                  className="[&_gmp-place-autocomplete]:w-full"
+                />
+              </label>
             </div>
-            <div className="mt-3">
-              <RequestDroneShotForm
-                target={{ kind: "address", ...searchHit }}
-                onDone={() => setSearchHit(null)}
-              />
-            </div>
-          </div>
-        ) : null}
-
-        <div className="mt-2 border-t border-zinc-100 pt-2 dark:border-zinc-800">
-          {placing?.mode === "move" ? (
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-violet-700 dark:text-violet-300">
-                Click the map where {listingLabel(placing.listing)} actually
-                sits.
-              </p>
+            {placing || draftPin ? (
               <button
                 type="button"
                 onClick={cancelPlacing}
-                className="text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-900 dark:hover:text-white"
+                className="shrink-0 rounded-xl border border-zinc-200 bg-white/95 px-3 py-2 text-xs font-medium text-zinc-700 shadow-lg backdrop-blur hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/95 dark:text-zinc-200 dark:hover:bg-zinc-800"
               >
                 Cancel
               </button>
-            </div>
-          ) : draftPin ? (
-            <PlacePinForm
-              latitude={draftPin.lat}
-              longitude={draftPin.lng}
-              onDone={cancelPlacing}
-              onCancel={cancelPlacing}
-            />
-          ) : placing?.mode === "new" ? (
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-violet-700 dark:text-violet-300">
-                Click the map where the parcel sits.
-              </p>
-              <button
-                type="button"
-                onClick={cancelPlacing}
-                className="text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-900 dark:hover:text-white"
-              >
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs text-zinc-500">
-                Parcel without a street number?
-              </p>
+            ) : (
               <button
                 type="button"
                 onClick={() => {
@@ -543,23 +486,71 @@ export function DroneShotsMap({
                   setPlaceNotice(null);
                   setPlacing({ mode: "new" });
                 }}
-                className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                className="shrink-0 rounded-xl border border-zinc-200 bg-white/95 px-3 py-2 text-xs font-medium text-zinc-700 shadow-lg backdrop-blur hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/95 dark:text-zinc-200 dark:hover:bg-zinc-800"
               >
-                Drop a pin instead
+                Drop a pin
               </button>
+            )}
+          </div>
+
+          {placing?.mode === "move" ? (
+            <p className="mt-2 rounded-xl border border-violet-200 bg-white/95 px-3 py-2 text-xs font-medium text-violet-700 shadow-lg backdrop-blur dark:border-violet-900 dark:bg-zinc-950/95 dark:text-violet-300">
+              Click the map where {listingLabel(placing.listing)} actually sits.
+            </p>
+          ) : placing?.mode === "new" && !draftPin ? (
+            <p className="mt-2 rounded-xl border border-violet-200 bg-white/95 px-3 py-2 text-xs font-medium text-violet-700 shadow-lg backdrop-blur dark:border-violet-900 dark:bg-zinc-950/95 dark:text-violet-300">
+              Click the map where the parcel sits.
+            </p>
+          ) : null}
+
+          {draftPin ? (
+            <div className="mt-2 rounded-xl border border-zinc-200 bg-white/95 p-3 shadow-lg backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95">
+              <PlacePinForm
+                latitude={draftPin.lat}
+                longitude={draftPin.lng}
+                onDone={cancelPlacing}
+                onCancel={cancelPlacing}
+              />
             </div>
-          )}
+          ) : null}
+
+          {searchHit ? (
+            <div className="mt-2 rounded-xl border border-indigo-200 bg-white/95 p-3 shadow-lg backdrop-blur dark:border-indigo-900 dark:bg-zinc-950/95">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-zinc-900 dark:text-white">
+                    {searchHit.address}
+                  </p>
+                  <p className="truncate text-xs text-zinc-500">
+                    {listingLocality(searchHit) || "—"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSearchHit(null)}
+                  className="shrink-0 text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
+                >
+                  Clear
+                </button>
+              </div>
+              <div className="mt-3">
+                <RequestDroneShotForm
+                  target={{ kind: "address", ...searchHit }}
+                  onDone={() => setSearchHit(null)}
+                />
+              </div>
+            </div>
+          ) : null}
+
           {placeNotice && !placing && !draftPin ? (
             <button
               type="button"
               onClick={() => setPlaceNotice(null)}
-              className="mt-2 block text-left text-xs font-medium text-emerald-600 dark:text-emerald-400"
+              className="mt-2 block w-full rounded-xl border border-zinc-200 bg-white/95 px-3 py-2 text-left text-xs font-medium text-emerald-600 shadow-lg backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95 dark:text-emerald-400"
             >
               {placeNotice} (dismiss)
             </button>
           ) : null}
-        </div>
-          </div>
         </div>
 
         {!apiKey ? (
