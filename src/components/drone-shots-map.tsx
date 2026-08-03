@@ -94,6 +94,7 @@ export function DroneShotsMap({
   );
   const [savingBorders, setSavingBorders] = useState(false);
   const [placeNotice, setPlaceNotice] = useState<string | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const mapNode = useRef<HTMLDivElement | null>(null);
   const searchNode = useRef<HTMLDivElement | null>(null);
@@ -145,7 +146,13 @@ export function DroneShotsMap({
   );
 
   const counts = useMemo(() => {
-    const base = { NO_PHOTOS: 0, NEEDS_MORE: 0, HAS_PHOTOS: 0, REQUESTED: 0 };
+    const base = {
+      NO_PHOTOS: 0,
+      NEEDS_MORE: 0,
+      NEXT_ROUTE: 0,
+      HAS_PHOTOS: 0,
+      REQUESTED: 0,
+    };
     for (const l of listings) {
       base[l.photoStatus] += 1;
       if (listingHasLiveRequest(l)) base.REQUESTED += 1;
@@ -199,29 +206,66 @@ export function DroneShotsMap({
       return;
     }
 
-    const { PlaceAutocompleteElement } = google.maps.places;
-    // Biased, not restricted: central Ohio addresses surface first, but a
-    // listing outside the metro can still be found by typing it out.
-    const element = new PlaceAutocompleteElement({
-      includedRegionCodes: ["us"],
-      locationBias: new google.maps.Circle({
-        center: { lat: HOME_BASE.lat, lng: HOME_BASE.lng },
-        radius: SEARCH_BIAS_RADIUS_M,
-      }),
-      origin: { lat: HOME_BASE.lat, lng: HOME_BASE.lng },
-    });
-    element.style.width = "100%";
-    searchNode.current.appendChild(element);
+    let cancelled = false;
+    let element: google.maps.places.PlaceAutocompleteElement | null = null;
+    let onSelect: EventListener | null = null;
 
-    const onSelect = async (event: Event) => {
-      const { placePrediction } = event as google.maps.places.PlacePredictionSelectEvent;
-      const place = placePrediction.toPlace();
-      await place.fetchFields({
-        fields: ["formattedAddress", "location", "addressComponents", "displayName"],
+    (async () => {
+      let PlaceAutocompleteElement: typeof google.maps.places.PlaceAutocompleteElement;
+      try {
+        // Loaded explicitly so a Places failure is distinguishable from a
+        // map failure — the map can be fine while Places API (New) is
+        // disabled on the key, which otherwise fails silently.
+        ({ PlaceAutocompleteElement } = (await google.maps.importLibrary(
+          "places",
+        )) as google.maps.PlacesLibrary);
+      } catch {
+        if (!cancelled) {
+          setSearchError(
+            "Address search couldn't load. In the Google Cloud console, make sure “Places API (New)” is enabled for this key.",
+          );
+        }
+        return;
+      }
+      if (cancelled || !searchNode.current || searchNode.current.childElementCount > 0) {
+        return;
+      }
+
+      // Biased, not restricted: central Ohio addresses surface first, but a
+      // listing outside the metro can still be found by typing it out.
+      element = new PlaceAutocompleteElement({
+        includedRegionCodes: ["us"],
+        locationBias: new google.maps.Circle({
+          center: { lat: HOME_BASE.lat, lng: HOME_BASE.lng },
+          radius: SEARCH_BIAS_RADIUS_M,
+        }),
+        origin: { lat: HOME_BASE.lat, lng: HOME_BASE.lng },
       });
+      element.style.width = "100%";
+      searchNode.current.appendChild(element);
 
+      onSelect = (async (event: Event) => {
+        const { placePrediction } = event as google.maps.places.PlacePredictionSelectEvent;
+        const place = placePrediction.toPlace();
+        try {
+          await place.fetchFields({
+            fields: ["formattedAddress", "location", "addressComponents", "displayName"],
+          });
+        } catch {
+          setSearchError(
+            "Couldn't load that address. Check that “Places API (New)” is enabled for the Maps key.",
+          );
+          return;
+        }
+        setSearchError(null);
+        handleSelectedPlace(place);
+      }) as unknown as EventListener;
+      element.addEventListener("gmp-select", onSelect);
+    })();
+
+    function handleSelectedPlace(place: google.maps.places.Place) {
       const location = place.location;
-      if (!location) return;
+      if (!location || !map) return;
 
       const components = place.addressComponents;
       const streetNumber = addressComponent(components, "street_number");
@@ -245,10 +289,12 @@ export function DroneShotsMap({
 
       map.panTo({ lat: hit.latitude, lng: hit.longitude });
       map.setZoom(17);
-    };
+    }
 
-    element.addEventListener("gmp-select", onSelect as EventListener);
-    return () => element.removeEventListener("gmp-select", onSelect as EventListener);
+    return () => {
+      cancelled = true;
+      if (element && onSelect) element.removeEventListener("gmp-select", onSelect);
+    };
   }, [map]);
 
   // A distinct pin marks the searched address until it becomes a listing.
@@ -595,6 +641,12 @@ export function DroneShotsMap({
               </button>
             )}
           </div>
+
+          {searchError ? (
+            <p className="mt-2 rounded-xl border border-rose-200 bg-white/95 px-3 py-2 text-xs font-medium text-rose-700 shadow-lg backdrop-blur dark:border-rose-900 dark:bg-zinc-950/95 dark:text-rose-300">
+              {searchError}
+            </p>
+          ) : null}
 
           {placing?.mode === "draw" ? (
             <div className="mt-2 rounded-xl border border-violet-200 bg-white/95 p-3 shadow-lg backdrop-blur dark:border-violet-900 dark:bg-zinc-950/95">

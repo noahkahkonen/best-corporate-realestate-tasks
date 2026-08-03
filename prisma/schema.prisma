@@ -150,5 +150,7 @@ enum PhotoStatus {
   NO_PHOTOS
   NEEDS_MORE
   HAS_PHOTOS
+  /// Queued for the photographer's next flight run.
+  NEXT_ROUTE
 }
 
