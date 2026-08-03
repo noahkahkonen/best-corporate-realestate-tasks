@@ -22,6 +22,14 @@ export const PHOTO_STATUS_META: Record<
     glyph: "#ffffff",
     badge: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200",
   },
+  NEXT_ROUTE: {
+    label: "On the next route",
+    short: "Next route",
+    pin: "#c026d3",
+    glyph: "#ffffff",
+    badge:
+      "bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-950 dark:text-fuchsia-200",
+  },
   HAS_PHOTOS: {
     label: "Has drone photos",
     short: "Has photos",
@@ -35,6 +43,7 @@ export const PHOTO_STATUS_META: Record<
 export const PHOTO_STATUS_ORDER: PhotoStatus[] = [
   "NO_PHOTOS",
   "NEEDS_MORE",
+  "NEXT_ROUTE",
   "HAS_PHOTOS",
 ];
 

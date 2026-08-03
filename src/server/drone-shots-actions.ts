@@ -336,7 +336,7 @@ export async function setPhotoStatus(
   const listingId = str(formData.get("listingId"));
   const status = str(formData.get("photoStatus")) as PhotoStatus;
   if (!listingId) return { error: "Missing listing." };
-  if (!["NO_PHOTOS", "NEEDS_MORE", "HAS_PHOTOS"].includes(status)) {
+  if (!["NO_PHOTOS", "NEEDS_MORE", "NEXT_ROUTE", "HAS_PHOTOS"].includes(status)) {
     return { error: "Unknown photo status." };
   }
 

@@ -26,7 +26,11 @@ export function DroneRoutePlanner({
   const [plan, setPlan] = useState<RoutePlan | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
+  // Listings marked "Next route" are the photographer's queue, so they start
+  // as must-include stops; anything else can still be added or removed.
+  const [pinnedIds, setPinnedIds] = useState<string[]>(() =>
+    listings.filter((l) => l.photoStatus === "NEXT_ROUTE").map((l) => l.id),
+  );
   const rendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
 
   const needsPhotos = listings.filter((l) => l.photoStatus !== "HAS_PHOTOS");
